@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:uuid/uuid.dart';
 
 import '../../../core/sync/local_store.dart';
@@ -93,8 +95,19 @@ class OrderManager {
   final StaffRepository _staff;
   final void Function()? _onCommit;
 
-  /// Set by "Edit Order > Add items": the home screen opens with this running order.
+  /// Set by Edit Order: the home screen opens with this running order (see [openOnHome]).
   Cart? homeIntent;
+
+  final _intents = StreamController<void>.broadcast();
+
+  /// Fires when [openOnHome] is called, so a home screen already in the navigation stack picks it up.
+  Stream<void> get intents => _intents.stream;
+
+  /// Hand [cart] to the home screen (taken once, by whichever home screen sees it first).
+  void openOnHome(Cart cart) {
+    homeIntent = cart;
+    _intents.add(null);
+  }
 
   String _now() => DateTime.now().toUtc().toIso8601String();
 
@@ -182,6 +195,18 @@ class OrderManager {
             note: cart.lines[i].note,
           ),
       ],
+    );
+  }
+
+  /// Edit Order: the whole running order as a home-screen cart, names filled in for display.
+  Future<Cart> editCart(String orderId) async {
+    final cart = await _openCart(orderId);
+    final s = (await summaries()).firstWhere((o) => o.id == orderId);
+    return cart.copyWith(
+      tableName: s.tableName,
+      captainName: s.captainName,
+      customerName: s.customerName,
+      deliveryPartnerName: s.partnerName,
     );
   }
 

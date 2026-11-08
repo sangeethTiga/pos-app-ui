@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:bloc/bloc.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:uuid/uuid.dart';
@@ -34,6 +36,9 @@ abstract class SellState with _$SellState {
     @Default('') String search,
     @Default(0) int page,
     @Default(Cart()) Cart cart,
+
+    /// Cart line last added or changed (highlighted while editing an order).
+    String? selectedKey,
     PricedOrder? priced,
     @Default(false) bool shiftOpen,
     @Default(<HeldCart>[]) List<HeldCart> held,
@@ -63,7 +68,11 @@ abstract class SellState with _$SellState {
 
 class SellCubit extends Cubit<SellState> {
   SellCubit(this._catalogue, this._checkout, this._shifts, this._ctx, this._orders, this._home, this._manager)
-    : super(const SellState());
+    : super(const SellState()) {
+    _intentSub = _manager.intents.listen((_) => _takeIntent());
+  }
+
+  late final StreamSubscription<void> _intentSub;
 
   final CatalogueRepository _catalogue;
   final CheckoutService _checkout;
@@ -77,8 +86,6 @@ class SellCubit extends Cubit<SellState> {
 
   Future<void> load() async {
     final categories = await _catalogue.categories();
-    final intent = _manager.homeIntent;
-    _manager.homeIntent = null;
     emit(
       state.copyWith(
         loading: false,
@@ -92,10 +99,22 @@ class SellCubit extends Cubit<SellState> {
         categoryId: state.categoryId ?? fastMovingId,
       ),
     );
-    if (intent != null) {
-      _setCart(intent);
-      emit(state.copyWith(info: 'Adding items to ${intent.existingOrderNo}'));
-    }
+    _takeIntent();
+  }
+
+  /// An order opened with Edit Order replaces the cart.
+  void _takeIntent() {
+    final intent = _manager.homeIntent;
+    if (intent == null || isClosed) return;
+    _manager.homeIntent = null;
+    _setCart(intent);
+    emit(state.copyWith(selectedKey: null, info: 'Editing ${intent.existingOrderNo}'));
+  }
+
+  @override
+  Future<void> close() async {
+    await _intentSub.cancel();
+    return super.close();
   }
 
   void category(String? id) => emit(state.copyWith(categoryId: id, page: 0, search: ''));
@@ -123,10 +142,13 @@ class SellCubit extends Cubit<SellState> {
     final i = lines.indexWhere((l) => l.productId == p.id && l.note == null);
     if (i >= 0) {
       lines[i] = lines[i].copyWith(qtyMilli: lines[i].qtyMilli + 1000);
+      emit(state.copyWith(selectedKey: lines[i].key));
     } else {
+      final key = const Uuid().v4();
+      emit(state.copyWith(selectedKey: key));
       lines.add(
         CartLine(
-          key: const Uuid().v4(),
+          key: key,
           productId: p.id,
           name: p.name,
           unitPriceMinor: p.priceMinor,
@@ -154,6 +176,7 @@ class SellCubit extends Cubit<SellState> {
   }
 
   void changeQty(String key, int deltaUnits) {
+    emit(state.copyWith(selectedKey: key));
     final lines = [
       for (final l in state.cart.lines)
         if (l.key != key)
@@ -221,19 +244,36 @@ class SellCubit extends Cubit<SellState> {
 
   void takeaway() => _setCart(_base.copyWith(orderType: Channel.takeaway));
 
-  void dineIn({required DiningTableInfo table, required int guests, OpenOrder? running, CaptainInfo? captain}) =>
-      _setCart(
-        _base.copyWith(
-          orderType: Channel.dineIn,
-          tableId: table.id,
-          tableName: table.name,
-          guests: guests,
-          existingOrderId: running?.id,
-          existingOrderNo: running?.orderNo,
-          captainId: captain?.id ?? state.cart.captainId,
-          captainName: captain?.name ?? state.cart.captainName,
-        ),
-      );
+  /// Dine in on [table]. A table with a running order opens that order for editing, with any items
+  /// already in the cart added to it.
+  Future<void> dineIn({
+    required DiningTableInfo table,
+    required int guests,
+    OpenOrder? running,
+    CaptainInfo? captain,
+  }) async {
+    if (running != null && running.id != state.cart.existingOrderId) {
+      try {
+        final order = await _manager.editCart(running.id);
+        final fresh = state.cart.existingOrderId == null ? state.cart.lines : const <CartLine>[];
+        return _setCart(order.copyWith(lines: [...order.lines, ...fresh], heldCartId: state.cart.heldCartId));
+      } on SaleException catch (e) {
+        return _err(e.message);
+      }
+    }
+    _setCart(
+      _base.copyWith(
+        orderType: Channel.dineIn,
+        tableId: table.id,
+        tableName: table.name,
+        guests: guests,
+        existingOrderId: running?.id,
+        existingOrderNo: running?.orderNo,
+        captainId: captain?.id ?? state.cart.captainId,
+        captainName: captain?.name ?? state.cart.captainName,
+      ),
+    );
+  }
 
   void homeDelivery({required CustomerInfo customer, bool carhop = false, String? carNo}) => _setCart(
     _base.copyWith(
@@ -294,8 +334,9 @@ class SellCubit extends Cubit<SellState> {
     emit(state.copyWith(held: await _orders.heldCarts()));
   }
 
-  /// Place Order: KOT to the kitchen, paid later from Orders.
-  Future<PlacedOrder?> place(String userId) async {
+  /// Place Order (KOT to the kitchen, paid later from Orders), or Update Order for an order opened
+  /// with Edit Order. [canReduce]: the user may lower items already sent to the kitchen.
+  Future<PlacedOrder?> place(String userId, {bool canReduce = true}) async {
     if (state.busy) return null;
     if (state.cart.orderType == Channel.dineIn && state.cart.tableId == null) {
       _err('Choose a table for dine-in.');
@@ -303,7 +344,9 @@ class SellCubit extends Cubit<SellState> {
     }
     emit(state.copyWith(busy: true));
     try {
-      final placed = await _orders.place(cart: state.cart, settings: state.settings, userId: userId);
+      final placed = state.cart.existingOrderId != null
+          ? await _orders.update(cart: state.cart, settings: state.settings, userId: userId, canReduce: canReduce)
+          : await _orders.place(cart: state.cart, settings: state.settings, userId: userId);
       emit(
         state.copyWith(
           busy: false,
@@ -313,11 +356,55 @@ class SellCubit extends Cubit<SellState> {
           held: await _orders.heldCarts(),
           info: placed.kind == 'NEW'
               ? 'Order ${placed.orderNo} placed · KOT ${placed.tokenNo}'
-              : 'Items added to ${placed.orderNo}',
+              : 'Order ${placed.orderNo} updated',
           error: null,
         ),
       );
       return placed;
+    } on SaleException catch (e) {
+      emit(state.copyWith(busy: false, error: e.message));
+      return null;
+    }
+  }
+
+  /// Quick Update Order: save the edited order without a KOT and settle it now.
+  Future<CompletedSale?> quickUpdate({
+    required List<({PaymentMethod method, int? amountMinor})> tenders,
+    required String userId,
+    required String cashierName,
+    int? cashTenderedMinor,
+    bool canReduce = true,
+  }) async {
+    if (state.busy) return null;
+    emit(state.copyWith(busy: true));
+    try {
+      final placed = await _orders.update(
+        cart: state.cart,
+        settings: state.settings,
+        userId: userId,
+        sendKot: false,
+        canReduce: canReduce,
+      );
+      final sale = await _checkout.settleOrder(
+        orderId: placed.orderId,
+        settings: state.settings,
+        tenders: tenders,
+        userId: userId,
+        cashierName: cashierName,
+        cashTenderedMinor: cashTenderedMinor,
+      );
+      emit(
+        state.copyWith(
+          busy: false,
+          cart: const Cart(),
+          priced: null,
+          lastSale: sale,
+          held: await _orders.heldCarts(),
+          fastMovingIds: await _home.fastMovingProductIds(),
+          error: null,
+        ),
+      );
+      return sale;
     } on SaleException catch (e) {
       emit(state.copyWith(busy: false, error: e.message));
       return null;

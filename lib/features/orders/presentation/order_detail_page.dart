@@ -6,9 +6,7 @@ import '../../../app/routes.dart';
 import '../../../core/di/injection.dart';
 import '../../../core/terminal/terminal_context.dart';
 import '../../catalogue/data/catalogue_repository.dart';
-import '../../printing/data/printer_service.dart';
-import '../../printing/domain/esc_pos.dart';
-import '../../printing/domain/ticket_formatter.dart';
+import '../../printing/data/print_center.dart';
 import '../../sales/data/home_repository.dart';
 import '../../sales/domain/cart.dart';
 import '../../sales/domain/checkout_service.dart';
@@ -148,7 +146,12 @@ class _Actions extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(label, style: const TextStyle(fontSize: 22, color: HomeColors.navy)),
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(label, style: const TextStyle(fontSize: 22, color: HomeColors.navy)),
+                ),
+              ),
               if (icon != null) ...[const SizedBox(width: 24), Icon(icon, color: HomeColors.navy, size: 32)],
             ],
           ),
@@ -254,26 +257,12 @@ class _Actions extends StatelessWidget {
     if (!ok || sale == null || !context.mounted) return;
     context.read<TerminalCubit>().refreshPending();
     final s = sale!;
-    final cfg = await sl<PrinterService>().settings();
-    String? printError;
-    if (cfg.receiptHost != null) {
-      try {
-        await sl<PrinterService>().send(
-          cfg.receiptHost!,
-          cfg.port,
-          TicketFormatter(_t, width: cfg.width)
-              .receipt(
-                s,
-                header: state.settings.receiptHeader,
-                footer: state.settings.receiptFooter,
-                openDrawer: cfg.drawer && s.settlement.tenders.any((x) => x.tender.cashLike),
-              )
-              .bytes,
-        );
-      } on Object {
-        printError = 'Receipt printer not reachable';
-      }
-    }
+    final r = await sl<PrintCenter>().receipt(
+      s,
+      header: state.settings.receiptHeader,
+      footer: state.settings.receiptFooter,
+    );
+    final printError = r.status == PrintStatus.noPrinter ? null : r.message('Receipt');
     if (!context.mounted) return;
     await showDialog<void>(
       context: context,
@@ -472,105 +461,16 @@ class _Actions extends StatelessWidget {
 
   // ---- edit / void / coupon -------------------------------------------------------------------------
 
+  /// Edit Order: the order opens on the home screen with all its items; Update Order sends the changes.
   Future<void> _edit(BuildContext context) async {
-    final d = state.detail!;
-    final qty = {for (final l in d.lines) l.id: l.qtyMilli ~/ 1000};
-    final result = await showDialog<Object>(
-      context: context,
-      builder: (ctx) => scaledForHome(
-        ctx,
-        StatefulBuilder(
-          builder: (ctx, set) => AlertDialog(
-            backgroundColor: HomeColors.dialog,
-            title: const Text('Edit Order'),
-            content: SizedBox(
-              width: 560,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  for (final l in d.lines)
-                    ListTile(
-                      title: Text(l.name, style: const TextStyle(fontSize: 18)),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            key: Key('editMinus-${l.id}'),
-                            onPressed: qty[l.id]! > 0 ? () => set(() => qty[l.id] = qty[l.id]! - 1) : null,
-                            icon: const Icon(Icons.remove_circle_outline),
-                          ),
-                          SizedBox(
-                            width: 36,
-                            child: Text(
-                              '${qty[l.id]}',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 20,
-                                color: qty[l.id] == 0 ? Colors.red : null,
-                                decoration: qty[l.id] == 0 ? TextDecoration.lineThrough : null,
-                              ),
-                            ),
-                          ),
-                          IconButton(
-                            onPressed: qty[l.id]! < l.qtyMilli ~/ 1000
-                                ? () => set(() => qty[l.id] = qty[l.id]! + 1)
-                                : null,
-                            icon: const Icon(Icons.add_circle_outline),
-                          ),
-                        ],
-                      ),
-                    ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Lower quantities here. To add items use Add Items.',
-                    style: TextStyle(color: Colors.black54),
-                  ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                key: const Key('addItems'),
-                onPressed: () => Navigator.pop(ctx, 'add'),
-                child: const Text('Add Items'),
-              ),
-              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-              FilledButton(
-                key: const Key('editSave'),
-                onPressed: () => Navigator.pop(ctx, Map<String, int>.from(qty)),
-                child: const Text('Save'),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-    if (result == null || !context.mounted) return;
-    if (result == 'add') {
-      sl<OrderManager>().homeIntent = Cart(
-        orderType: d.cart.orderType,
-        tableId: d.cart.tableId,
-        tableName: d.summary.tableName,
-        guests: d.cart.guests,
-        existingOrderId: d.summary.id,
-        existingOrderNo: d.summary.orderNo,
-        captainId: d.cart.captainId,
-        captainName: d.summary.captainName,
-        deliveryPartnerId: d.cart.deliveryPartnerId,
-        deliveryPartnerName: d.summary.partnerName,
-      );
-      context.go(Routes.sell);
+    final manager = sl<OrderManager>();
+    try {
+      manager.openOnHome(await manager.editCart(state.detail!.summary.id));
+    } on SaleException catch (e) {
+      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
       return;
     }
-    final newQty = {for (final e in (result as Map<String, int>).entries) e.key: e.value * 1000};
-    final reduced = d.lines.any((l) => newQty[l.id]! < l.qtyMilli);
-    if (!reduced) return;
-    if (!_can(context, 'order.reduce_qty_after_kot', 'reduce items already sent to the kitchen')) return;
-    await _cubit(context).run(
-      () =>
-          _cubit(context).orders.reduce(orderId: d.summary.id, qty: newQty, settings: state.settings, userId: _user.id),
-      done: 'Order updated · cancel KOT sent',
-    );
+    if (context.mounted) context.go(Routes.sell);
   }
 
   Future<void> _void(BuildContext context) async {
@@ -722,8 +622,7 @@ class _Actions extends StatelessWidget {
   Future<void> _printBill(BuildContext context) async {
     final d = state.detail!;
     if (d.priced == null) return;
-    final cfg = await sl<PrinterService>().settings();
-    final ticket = TicketFormatter(_t, width: cfg.width).bill(
+    final r = await sl<PrintCenter>().bill(
       orderNo: d.summary.orderNo,
       tokenNo: d.summary.tokenNo,
       cart: d.cart,
@@ -732,7 +631,7 @@ class _Actions extends StatelessWidget {
       footer: state.settings.receiptFooter,
     );
     if (!context.mounted) return;
-    await _send(context, cfg.receiptHost, cfg.port, ticket, 'Bill');
+    await _shown(context, r, 'Bill');
     if (d.summary.status == 'OPEN' && context.mounted) {
       await _cubit(context).run(() => _cubit(context).orders.markBilled(d.summary.id, _user.id));
     }
@@ -740,34 +639,32 @@ class _Actions extends StatelessWidget {
 
   Future<void> _printKot(BuildContext context) async {
     final d = state.detail!;
-    final cfg = await sl<PrinterService>().settings();
-    final ticket = TicketFormatter(
-      _t,
-      width: cfg.width,
-    ).kotTicket(tokenNo: d.summary.tokenNo, orderNo: d.summary.orderNo, cart: d.cart, lines: d.cart.lines);
-    if (context.mounted) await _send(context, cfg.kitchenHost, cfg.port, ticket, 'KOT');
+    final r = await sl<PrintCenter>().kotLines(
+      tokenNo: d.summary.tokenNo,
+      orderNo: d.summary.orderNo,
+      cart: d.cart,
+      lines: d.cart.lines,
+    );
+    if (context.mounted) await _shown(context, r, 'KOT');
   }
 
-  /// Sends to the printer, or shows the ticket on screen when no printer is set up.
-  Future<void> _send(BuildContext context, String? host, int port, EscPos ticket, String what) async {
-    if (host != null) {
-      try {
-        await sl<PrinterService>().send(host, port, ticket.bytes);
-        if (context.mounted) _toast(context, '$what sent to the printer');
-        return;
-      } on Object {
-        if (context.mounted) _toast(context, '$what printer not reachable — showing it on screen');
-      }
-    }
-    if (!context.mounted) return;
+  /// Toast for the print result; shows the ticket on screen when it did not print.
+  Future<void> _shown(BuildContext context, PrintOutcome r, String what) async {
+    if (r.status == PrintStatus.printed) return _toast(context, '$what sent to the printer');
+    if (r.status == PrintStatus.queued) return _toast(context, r.message(what)!);
+    if (r.status == PrintStatus.failed) _toast(context, '${r.message(what)} — showing it on screen');
+    if (r.tickets.isEmpty || !context.mounted) return;
     await showDialog<void>(
       context: context,
       builder: (ctx) => scaledForHome(
         ctx,
         AlertDialog(
-          title: Text('$what preview${host == null ? ' (no printer set up)' : ''}'),
+          title: Text('$what preview${r.status == PrintStatus.noPrinter ? ' (no printer set up)' : ''}'),
           content: SingleChildScrollView(
-            child: Text(ticket.preview, style: const TextStyle(fontFamily: 'monospace', fontSize: 14)),
+            child: Text(
+              r.tickets.map((t) => t.preview).join('\n'),
+              style: const TextStyle(fontFamily: 'monospace', fontSize: 14),
+            ),
           ),
           actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close'))],
         ),

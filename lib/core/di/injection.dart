@@ -13,7 +13,9 @@ import '../../features/device_setup/presentation/bloc/device_setup_bloc.dart';
 import '../../features/home/presentation/cubit/home_cubit.dart';
 import '../../features/orders/presentation/order_detail_cubit.dart';
 import '../../features/orders/presentation/orders_cubit.dart';
+import '../../features/printing/data/print_center.dart';
 import '../../features/printing/data/printer_service.dart';
+import '../../features/printing/data/printer_transport.dart';
 import '../../features/sales/data/home_repository.dart';
 import '../../features/sales/domain/checkout_service.dart';
 import '../../features/sales/domain/order_manager.dart';
@@ -42,7 +44,12 @@ final GetIt sl = GetIt.instance;
 
 /// Registration order: core, then each feature (data -> domain -> presentation).
 /// Singletons for stateless services, factories for blocs/cubits (one per screen).
-Future<void> configureDependencies({AppConfig? config, SecureStore? secureStore, AppDatabase? database}) async {
+Future<void> configureDependencies({
+  AppConfig? config,
+  SecureStore? secureStore,
+  AppDatabase? database,
+  PrinterTransport? printerTransport,
+}) async {
   // ---- core --------------------------------------------------------------------------
   sl
     ..registerSingleton<AppConfig>(config ?? AppConfig.fromEnvironment())
@@ -150,7 +157,8 @@ Future<void> configureDependencies({AppConfig? config, SecureStore? secureStore,
         sl<OrderManager>(),
       ),
     )
-    ..registerLazySingleton(() => PrinterService(sl<LocalStore>()));
+    ..registerLazySingleton(() => PrinterService(sl<LocalStore>(), transport: printerTransport))
+    ..registerLazySingleton(() => PrintCenter(sl<PrinterService>(), sl<LocalStore>(), sl<TerminalContextHolder>()));
 }
 
 /// Every local commit: upload soon (CONTINUOUS) and refresh the pending counter.

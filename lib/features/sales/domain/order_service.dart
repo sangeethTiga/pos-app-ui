@@ -17,14 +17,18 @@ class PlacedOrder {
     required this.cart,
     required this.newLines,
     required this.kind,
+    this.cancelledLines = const [],
   });
   final String orderId, orderNo, tokenNo;
   final Cart cart;
 
-  /// Lines on this KOT (all lines for a new order, only the added ones for a running order).
+  /// Lines on this KOT (all lines for a new order, only the added quantities for an edited order).
   final List<CartLine> newLines;
 
-  /// NEW or NEW_ITEMS.
+  /// Quantities taken off an edited order (CANCEL KOT).
+  final List<CartLine> cancelledLines;
+
+  /// NEW, or UPDATE for an edited order.
   final String kind;
 }
 
@@ -87,7 +91,7 @@ class OrderService {
 
   Future<PlacedOrder> place({required Cart cart, required SalesSettings settings, required String userId}) async {
     if (cart.isEmpty) throw const SaleException('The cart is empty.');
-    if (cart.existingOrderId != null) return _addItems(cart, settings, userId);
+    if (cart.existingOrderId != null) return update(cart: cart, settings: settings, userId: userId);
     final day =
         await _shifts.openDay() ??
         (throw const SaleException('No business day is open. A cashier must open a shift first.'));
@@ -169,34 +173,64 @@ class OrderService {
     );
   }
 
-  /// New items for a running order: new lines, a NEW_ITEMS KOT and the order totals re-priced.
-  Future<PlacedOrder> _addItems(Cart cart, SalesSettings settings, String userId) async {
+  /// Update Order: the cart holds the whole running order (lines keyed by order_line id) as edited
+  /// on the home screen. Added quantities go on a NEW_ITEMS KOT, lowered or removed ones on a CANCEL
+  /// KOT, and the order is re-priced. [sendKot] false (Quick Update Order) records no KOT.
+  /// [canReduce] false rejects any reduction (permission order.reduce_qty_after_kot).
+  Future<PlacedOrder> update({
+    required Cart cart,
+    required SalesSettings settings,
+    required String userId,
+    bool sendKot = true,
+    bool canReduce = true,
+  }) async {
     final ctx = _ctx.ctx;
     final order =
         await _store.find('orders', cart.existingOrderId!) ??
         (throw const SaleException('The running order was not found.'));
     final status = order.data['status'];
     if (status != 'OPEN' && status != 'BILLED') throw const SaleException('That order is already closed.');
-    final existing = [
-      for (final r in await _store.all('order_line'))
-        if (r.data['order_id'] == order.id && r.data['kot_status'] != 'CANCELLED')
-          CartLine(
-            key: r.id,
-            productId: r.data['product_id'] as String?,
-            name: r.data['name_snapshot'] as String? ?? '',
-            unitPriceMinor: (r.data['unit_price_minor'] as num).toInt(),
-            qtyMilli: (r.data['qty_milli'] as num).toInt(),
-            taxRateBp: (r.data['tax_rate_bp'] as num?)?.toInt() ?? 0,
-            priceIncludesTax: r.data['price_includes_tax'] as bool? ?? true,
-            trackStock: false,
-          ),
-    ];
-    final all = cart.copyWith(lines: [...existing, ...cart.lines]);
-    final priced = _checkout.price(all, settings);
+    if (cart.isEmpty) throw const SaleException('To remove every item use Void Bill.');
+    final stored = await _checkout.loadOrderCart(order.id);
+    final current = {for (final l in stored.lines) l.key: l};
+    final priced = _checkout.price(cart, settings);
+    final added = <CartLine>[];
+    final cancelled = <CartLine>[];
+    final changes = <LocalChange>[];
+    for (var i = 0; i < cart.lines.length; i++) {
+      final l = cart.lines[i];
+      final old = current[l.key];
+      if (old == null) {
+        added.add(l);
+        changes.add(_lineInsert(order.id, l, priced, i));
+        continue;
+      }
+      if (l.qtyMilli > old.qtyMilli) added.add(l.copyWith(qtyMilli: l.qtyMilli - old.qtyMilli));
+      if (l.qtyMilli < old.qtyMilli) cancelled.add(l.copyWith(qtyMilli: old.qtyMilli - l.qtyMilli));
+      changes.add(
+        LocalChange.update('order_line', l.key, {
+          'order_id': order.id,
+          'qty_milli': l.qtyMilli,
+          'discount_minor': priced.lines[i].discount,
+          'tax_minor': priced.lines[i].tax,
+          'line_total_minor': priced.lines[i].lineTotal,
+          'note': l.note,
+        }),
+      );
+    }
+    final kept = {for (final l in cart.lines) l.key};
+    for (final old in stored.lines) {
+      if (kept.contains(old.key)) continue;
+      cancelled.add(old);
+      changes.add(LocalChange.update('order_line', old.key, {'kot_status': 'CANCELLED'}));
+    }
+    if (cancelled.isNotEmpty && !canReduce) {
+      throw const SaleException('You may not reduce items already sent to the kitchen.');
+    }
     final tokenNo = order.data['token_no'] as String? ?? '';
-    final changes = <LocalChange>[
-      ..._lineChanges(order.id, cart.lines, priced, existing.length),
+    changes.addAll([
       LocalChange.update('orders', order.id, {
+        ...cart.orderFields(),
         'subtotal_minor': priced.subtotalMinor,
         'discount_minor': priced.discountMinor,
         'charge_minor': priced.chargeMinor,
@@ -205,22 +239,41 @@ class OrderService {
         'updated_by': userId,
         if (status == 'BILLED') 'status': 'OPEN',
       }),
+      if (cart.discountBp != stored.discountBp)
+        LocalChange.insert('order_discount', {
+          'order_id': order.id,
+          'kind': 'PERCENT',
+          'value_bp': cart.discountBp,
+          'amount_minor': priced.discountMinor,
+          'applied_by': userId,
+        }),
       LocalChange.insert('order_event', {
         'order_id': order.id,
-        'type': 'ITEMS_ADDED',
+        'type': 'ORDER_UPDATED',
         'user_id': userId,
         'device_code': ctx.deviceCode,
         'occurred_at': _nowIso(),
       }),
-      LocalChange.insert('kot', {
-        'order_id': order.id,
-        'kind': 'NEW_ITEMS',
-        'token_no': tokenNo,
-        'lines': kotLines(cart.lines, cart.kitchenNote),
-        'device_code': ctx.deviceCode,
-      }),
-    ];
-    if (cart.heldCartId != null) changes.add(_recalledChange(cart.heldCartId!));
+      if (sendKot && added.isNotEmpty)
+        LocalChange.insert('kot', {
+          'order_id': order.id,
+          'kind': 'NEW_ITEMS',
+          'token_no': tokenNo,
+          'lines': kotLines(added, cart.kitchenNote),
+          'device_code': ctx.deviceCode,
+        }),
+      if (sendKot && cancelled.isNotEmpty)
+        LocalChange.insert('kot', {
+          'order_id': order.id,
+          'kind': 'CANCEL',
+          'token_no': tokenNo,
+          'lines': [
+            for (final l in cancelled) {'name': l.name, 'qty_milli': l.qtyMilli, 'note': 'CANCEL'},
+          ],
+          'device_code': ctx.deviceCode,
+        }),
+      if (cart.heldCartId != null) _recalledChange(cart.heldCartId!),
+    ]);
     await _store.commit(changes, userId: userId);
     _onCommit?.call();
     return PlacedOrder(
@@ -228,29 +281,31 @@ class OrderService {
       orderNo: order.data['order_no'] as String? ?? '',
       tokenNo: tokenNo,
       cart: cart,
-      newLines: cart.lines,
-      kind: 'NEW_ITEMS',
+      newLines: added,
+      cancelledLines: cancelled,
+      kind: 'UPDATE',
     );
   }
 
   List<LocalChange> _lineChanges(String orderId, List<CartLine> lines, PricedOrder priced, int offset) => [
-    for (var i = 0; i < lines.length; i++)
-      LocalChange.insert('order_line', {
-        'order_id': orderId,
-        'product_id': ?lines[i].productId,
-        'name_snapshot': lines[i].name,
-        'qty_milli': lines[i].qtyMilli,
-        'unit_price_minor': lines[i].unitPriceMinor,
-        'discount_minor': priced.lines[offset + i].discount,
-        'tax_rate_bp': lines[i].taxRateBp,
-        'price_includes_tax': lines[i].priceIncludesTax,
-        'tax_minor': priced.lines[offset + i].tax,
-        'line_total_minor': priced.lines[offset + i].lineTotal,
-        'kot_status': 'SENT',
-        'note': ?lines[i].note,
-        'added_by_device': _ctx.ctx.deviceCode,
-      }),
+    for (var i = 0; i < lines.length; i++) _lineInsert(orderId, lines[i], priced, offset + i),
   ];
+
+  LocalChange _lineInsert(String orderId, CartLine l, PricedOrder priced, int i) => LocalChange.insert('order_line', {
+    'order_id': orderId,
+    'product_id': ?l.productId,
+    'name_snapshot': l.name,
+    'qty_milli': l.qtyMilli,
+    'unit_price_minor': l.unitPriceMinor,
+    'discount_minor': priced.lines[i].discount,
+    'tax_rate_bp': l.taxRateBp,
+    'price_includes_tax': l.priceIncludesTax,
+    'tax_minor': priced.lines[i].tax,
+    'line_total_minor': priced.lines[i].lineTotal,
+    'kot_status': 'SENT',
+    'note': ?l.note,
+    'added_by_device': _ctx.ctx.deviceCode,
+  });
 
   // ---- Hold -----------------------------------------------------------------------------
 

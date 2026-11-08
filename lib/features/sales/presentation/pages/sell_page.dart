@@ -8,8 +8,8 @@ import '../../../../app/routes.dart';
 import '../../../../core/di/injection.dart';
 import '../../../../core/terminal/terminal_context.dart';
 import '../../../catalogue/data/catalogue_repository.dart';
+import '../../../printing/data/print_center.dart';
 import '../../../printing/data/printer_service.dart';
-import '../../../printing/domain/ticket_formatter.dart';
 import '../../../shift/domain/shift_service.dart';
 import '../../../shift/presentation/shift_dialogs.dart';
 import '../../../staff/data/staff_repository.dart';
@@ -45,9 +45,11 @@ class _SellPageState extends State<SellPage> {
   @override
   void initState() {
     super.initState();
-    sl<PrinterService>().settings().then((s) {
-      if (mounted) setState(() => _kotPrinterMissing = s.kitchenHost == null);
-    });
+    sl<PrinterService>()
+      ..startAutoQueue()
+      ..settings().then((s) {
+        if (mounted) setState(() => _kotPrinterMissing = !s.hasKot);
+      });
   }
 
   @override
@@ -57,9 +59,20 @@ class _SellPageState extends State<SellPage> {
     super.dispose();
   }
 
-  void _toast(String m) => ScaffoldMessenger.of(context)
-    ..hideCurrentSnackBar()
-    ..showSnackBar(SnackBar(content: Text(m), duration: const Duration(seconds: 3)));
+  /// Snackbar; on wide screens it floats bottom-left so it never covers the cart buttons.
+  void _toast(String m) {
+    final w = MediaQuery.sizeOf(context).width;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(m),
+          duration: const Duration(seconds: 3),
+          behavior: w < 700 ? null : SnackBarBehavior.floating,
+          margin: w < 700 ? null : EdgeInsets.only(left: 12, bottom: 12, right: w - 12 - 440),
+        ),
+      );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -273,7 +286,7 @@ class _SellPageState extends State<SellPage> {
             if (captain == null) return;
           }
         }
-        cubit.dineIn(table: choice.table, guests: choice.guests, running: choice.running, captain: captain);
+        await cubit.dineIn(table: choice.table, guests: choice.guests, running: choice.running, captain: captain);
       case Channel.homeDelivery:
         final choice = await showCustomerDetails(context, repo: home, userId: user.id, selectedId: s.cart.customerId);
         if (choice == null) return;
@@ -336,7 +349,7 @@ class _SellPageState extends State<SellPage> {
   }
 
   Future<void> _place(SellCubit cubit) async {
-    final placed = await cubit.place(user.id);
+    final placed = await cubit.place(user.id, canReduce: user.can('order.reduce_qty_after_kot'));
     if (placed == null || !mounted) return;
     context.read<TerminalCubit>().refreshPending();
     // Print the KOT in the background so the dashboard opens at once.
@@ -345,23 +358,13 @@ class _SellPageState extends State<SellPage> {
     if (mounted) cubit.load();
   }
 
+  /// KOT for a new order; for an updated order an ADD-ON ticket for added items and a CANCEL ticket
+  /// for removed ones (split by kitchen station).
   Future<void> _printKot(PlacedOrder placed) async {
-    final printer = sl<PrinterService>();
-    final cfg = await printer.settings();
-    if (cfg.kitchenHost == null) return;
-    try {
-      final bytes = TicketFormatter(t, width: cfg.width)
-          .kotTicket(
-            tokenNo: placed.tokenNo,
-            orderNo: placed.orderNo,
-            cart: placed.cart,
-            lines: placed.newLines,
-            kind: placed.kind,
-          )
-          .bytes;
-      await printer.send(cfg.kitchenHost!, cfg.port, bytes);
-    } on Object {
-      if (mounted) _toast('Order placed, but the kitchen printer is not reachable.');
+    final r = await sl<PrintCenter>().kot(placed);
+    // "KOT printer not configured" is already shown in the top bar.
+    if (r.status != PrintStatus.noPrinter && mounted) {
+      if (r.message('Kitchen') case final m?) _toast(m);
     }
   }
 
@@ -377,12 +380,20 @@ class _SellPageState extends State<SellPage> {
       roundingIncrement: s.settings.cashRoundingIncrementMinor,
     );
     if (result == null || !mounted) return;
-    final sale = await cubit.pay(
-      tenders: result.tenders,
-      userId: user.id,
-      cashierName: user.name,
-      cashTenderedMinor: result.cashTendered,
-    );
+    final sale = s.cart.existingOrderId != null
+        ? await cubit.quickUpdate(
+            tenders: result.tenders,
+            userId: user.id,
+            cashierName: user.name,
+            cashTenderedMinor: result.cashTendered,
+            canReduce: user.can('order.reduce_qty_after_kot'),
+          )
+        : await cubit.pay(
+            tenders: result.tenders,
+            userId: user.id,
+            cashierName: user.name,
+            cashTenderedMinor: result.cashTendered,
+          );
     if (sale == null || !mounted) return;
     context.read<TerminalCubit>().refreshPending();
     final printError = await _printReceipt(sale, s);
@@ -408,28 +419,10 @@ class _SellPageState extends State<SellPage> {
     );
   }
 
-  /// Receipt (+ drawer on cash). Quick Order sends nothing to the kitchen.
+  /// Receipt copies for the order type (+ drawer on cash). Quick Order sends nothing to the kitchen.
   Future<String?> _printReceipt(CompletedSale sale, SellState s) async {
-    final printer = sl<PrinterService>();
-    final cfg = await printer.settings();
-    if (cfg.receiptHost == null) return null;
-    try {
-      await printer.send(
-        cfg.receiptHost!,
-        cfg.port,
-        TicketFormatter(t, width: cfg.width)
-            .receipt(
-              sale,
-              header: s.settings.receiptHeader,
-              footer: s.settings.receiptFooter,
-              openDrawer: cfg.drawer && sale.settlement.tenders.any((x) => x.tender.cashLike),
-            )
-            .bytes,
-      );
-      return null;
-    } on Object {
-      return 'Receipt printer not reachable';
-    }
+    final r = await sl<PrintCenter>().receipt(sale, header: s.settings.receiptHeader, footer: s.settings.receiptFooter);
+    return r.status == PrintStatus.noPrinter ? null : r.message('Receipt');
   }
 }
 
@@ -1034,47 +1027,60 @@ class _CartPanel extends StatelessWidget {
     final ch = cart.channel;
     final vatRate = cart.lines.isEmpty ? 0 : cart.lines.first.taxRateBp;
     final inclusive = cart.lines.isEmpty || cart.lines.first.priceIncludesTax;
+    final editing = cart.existingOrderId != null;
     return Container(
       color: Colors.white,
       padding: const EdgeInsets.fromLTRB(8, 10, 8, 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              for (final (key, label, value) in [
-                ('chDineIn', 'Dine In', Channel.dineIn),
-                ('chTakeaway', 'Take away', Channel.takeaway),
-                ('chDelivery', 'Home Delivery', Channel.homeDelivery),
-                ('chPartner', 'Delivery Partner', Channel.partner),
-              ])
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 2),
-                    child: SizedBox(
-                      height: 56,
-                      child: FilledButton(
-                        key: Key(key),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: ch == value ? HomeColors.navy : HomeColors.blue,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(4),
-                            side: const BorderSide(color: HomeColors.navy),
+          if (editing)
+            Padding(
+              key: const Key('editHeader'),
+              padding: const EdgeInsets.fromLTRB(4, 4, 4, 2),
+              child: Text(
+                'Bill No :  #${cart.existingOrderNo ?? ''}    Bill Type : ${_typeLabel(ch)}',
+                style: const TextStyle(fontSize: 21, color: Colors.black87),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            )
+          else
+            Row(
+              children: [
+                for (final (key, label, value) in [
+                  ('chDineIn', 'Dine In', Channel.dineIn),
+                  ('chTakeaway', 'Take away', Channel.takeaway),
+                  ('chDelivery', 'Home Delivery', Channel.homeDelivery),
+                  ('chPartner', 'Delivery Partner', Channel.partner),
+                ])
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 2),
+                      child: SizedBox(
+                        height: 56,
+                        child: FilledButton(
+                          key: Key(key),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: ch == value ? HomeColors.navy : HomeColors.blue,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(4),
+                              side: const BorderSide(color: HomeColors.navy),
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
                           ),
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                        ),
-                        onPressed: () => onChannel(value),
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Text(label, style: const TextStyle(fontSize: 22)),
+                          onPressed: () => onChannel(value),
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(label, style: const TextStyle(fontSize: 22)),
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-            ],
-          ),
-          if (_details(cart) case final details?)
+              ],
+            ),
+          if (!editing && _details(cart) != null)
             InkWell(
               key: const Key('orderDetails'),
               onTap: () => onChannel(ch),
@@ -1086,7 +1092,7 @@ class _CartPanel extends StatelessWidget {
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
-                        details,
+                        _details(cart)!,
                         style: const TextStyle(color: HomeColors.navy, fontWeight: FontWeight.w600),
                       ),
                     ),
@@ -1131,6 +1137,8 @@ class _CartPanel extends StatelessWidget {
                 line: cart.lines[i],
                 total: priced?.lines[i].lineTotal,
                 t: t,
+                editing: editing,
+                selected: editing && cart.lines[i].key == state.selectedKey,
                 onTap: () => onEditLine(cart.lines[i]),
                 onQty: (d) => onQty(cart.lines[i].key, d),
               ),
@@ -1168,14 +1176,14 @@ class _CartPanel extends StatelessWidget {
                       flex: 2,
                       child: _bottomButton('hold', 'Hold', HomeColors.green, empty || state.busy ? null : onHold),
                     ),
-                    if (!captainDevice && cart.existingOrderId == null) ...[
+                    if (!captainDevice) ...[
                       const SizedBox(width: 16),
                       Expanded(
                         flex: 4,
                         child: _bottomButton(
                           'pay',
-                          'Quick Order(No KOT)',
-                          HomeColors.quick,
+                          editing ? 'Quick Update Order' : 'Quick Order(No KOT)',
+                          editing ? HomeColors.navy : HomeColors.quick,
                           empty || state.busy ? null : onQuick,
                         ),
                       ),
@@ -1185,7 +1193,7 @@ class _CartPanel extends StatelessWidget {
                       flex: 4,
                       child: _bottomButton(
                         'placeOrder',
-                        cart.existingOrderId != null ? 'Add to ${cart.existingOrderNo}' : 'Place Order',
+                        editing ? 'Update Order' : 'Place Order',
                         HomeColors.place,
                         empty || state.busy ? null : onPlace,
                       ),
@@ -1200,12 +1208,18 @@ class _CartPanel extends StatelessWidget {
     );
   }
 
+  static String _typeLabel(String channel) => switch (channel) {
+    Channel.dineIn => 'Dine in',
+    Channel.takeaway => 'Take away',
+    Channel.homeDelivery => 'Home Delivery',
+    _ => 'Delivery Partner',
+  };
+
   static String? _details(Cart c) => switch (c.channel) {
     Channel.dineIn when c.tableName != null => [
       'Table ${c.tableName}',
       if (c.guests != null) 'PAX ${c.guests}',
       if (c.captainName != null) 'Captain ${c.captainName}',
-      if (c.existingOrderNo != null) 'Running ${c.existingOrderNo}',
     ].join(' · '),
     Channel.homeDelivery when c.customerName != null => [
       c.customerName!,
@@ -1270,15 +1284,102 @@ class _Dashed extends StatelessWidget {
 }
 
 class _LineRow extends StatelessWidget {
-  const _LineRow({required this.line, required this.total, required this.t, required this.onTap, required this.onQty});
+  const _LineRow({
+    required this.line,
+    required this.total,
+    required this.t,
+    required this.onTap,
+    required this.onQty,
+    this.editing = false,
+    this.selected = false,
+  });
   final CartLine line;
   final int? total;
   final TerminalContext t;
   final VoidCallback onTap;
   final ValueChanged<int> onQty;
 
+  /// Edit Order layout: qty and price columns with stacked + / - on the right.
+  final bool editing;
+  final bool selected;
+
+  String get _qty => line.qtyMilli % 1000 == 0 ? '${line.qtyMilli ~/ 1000}' : (line.qtyMilli / 1000).toStringAsFixed(3);
+
   @override
-  Widget build(BuildContext context) => InkWell(
+  Widget build(BuildContext context) => editing ? _editRow() : _row();
+
+  Widget _editRow() {
+    final fg = selected ? Colors.white : Colors.black87;
+    return InkWell(
+      key: Key('line-${line.key}'),
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(top: 8),
+        padding: const EdgeInsets.fromLTRB(18, 8, 14, 8),
+        decoration: BoxDecoration(
+          color: selected ? HomeColors.blue : HomeColors.page,
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              flex: 5,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(line.name, style: TextStyle(fontSize: 21, color: fg)),
+                  Text(t.money(line.unitPriceMinor), style: TextStyle(fontSize: 19, color: fg)),
+                  if (line.note != null)
+                    Text(
+                      '* ${line.note}',
+                      style: TextStyle(fontSize: 13, color: selected ? Colors.white : Colors.deepOrange),
+                    ),
+                ],
+              ),
+            ),
+            Expanded(
+              flex: 2,
+              child: Text(
+                _qty,
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 23, color: fg),
+              ),
+            ),
+            Expanded(
+              flex: 2,
+              child: Text(
+                t.money(total ?? line.unitPriceMinor * line.qtyMilli ~/ 1000),
+                textAlign: TextAlign.end,
+                style: TextStyle(fontSize: 23, color: fg),
+              ),
+            ),
+            const SizedBox(width: 6),
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _stackButton(Icons.add, () => onQty(1), 'plus-${line.key}'),
+                const SizedBox(height: 8),
+                _stackButton(Icons.remove, () => onQty(-1), 'minus-${line.key}'),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _stackButton(IconData icon, VoidCallback onTap, String key) => Material(
+    color: selected ? Colors.white : const Color(0xFFE8E6EC),
+    borderRadius: BorderRadius.circular(10),
+    child: InkWell(
+      key: Key(key),
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: SizedBox(width: 84, height: 50, child: Icon(icon, size: 26, color: Colors.black)),
+    ),
+  );
+
+  Widget _row() => InkWell(
     key: Key('line-${line.key}'),
     onTap: onTap,
     child: Container(
@@ -1307,10 +1408,7 @@ class _LineRow extends StatelessWidget {
                 _qtyButton(Icons.remove, () => onQty(-1), 'minus-${line.key}'),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 6),
-                  child: Text(
-                    line.qtyMilli % 1000 == 0 ? '${line.qtyMilli ~/ 1000}' : (line.qtyMilli / 1000).toStringAsFixed(3),
-                    style: const TextStyle(fontSize: 18),
-                  ),
+                  child: Text(_qty, style: const TextStyle(fontSize: 18)),
                 ),
                 _qtyButton(Icons.add, () => onQty(1), 'plus-${line.key}'),
               ],
@@ -1381,16 +1479,28 @@ class _CartBar extends StatelessWidget {
 
 // ---- drawer and shift -----------------------------------------------------------------------------------
 
-class _HomeDrawer extends StatelessWidget {
+/// Side menu: Cloud Sync, Finance, Orders, Settings (printers, activation, contact), Open Drawer,
+/// Shift Close, Logout.
+class _HomeDrawer extends StatefulWidget {
   const _HomeDrawer({required this.onShiftChanged});
   final VoidCallback onShiftChanged;
+
+  @override
+  State<_HomeDrawer> createState() => _HomeDrawerState();
+}
+
+class _HomeDrawerState extends State<_HomeDrawer> {
+  final _open = <String>{'settings'};
+
+  static const _ink = Color(0xFF22406A);
 
   @override
   Widget build(BuildContext context) {
     final t = sl<TerminalContextHolder>().ctx;
     final shifts = sl<ShiftService>();
     final user = sl<StaffSession>().user;
-    void toast(String m) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
+    final messenger = ScaffoldMessenger.of(context);
+    void toast(String m) => messenger.showSnackBar(SnackBar(content: Text(m)));
     Future<void> run(Future<void> Function() f) async {
       Navigator.pop(context);
       try {
@@ -1400,93 +1510,207 @@ class _HomeDrawer extends StatelessWidget {
       }
     }
 
-    return Drawer(
-      child: ListView(
-        children: [
-          DrawerHeader(
-            decoration: const BoxDecoration(color: HomeColors.navy),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.end,
+    void push(String route) {
+      Navigator.pop(context);
+      context.push(route);
+    }
+
+    Widget top(String key, IconData icon, String label, {VoidCallback? onTap, bool group = false}) {
+      final open = _open.contains(key);
+      return Material(
+        color: group && open ? const Color(0xFFE9E7EE) : Colors.transparent,
+        child: InkWell(
+          key: Key('menu-$key'),
+          onTap: group ? () => setState(() => open ? _open.remove(key) : _open.add(key)) : onTap,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(22, 17, 22, 17),
+            child: Row(
               children: [
-                Text(
-                  t.storeName,
-                  style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+                Icon(icon, color: _ink, size: 28),
+                const SizedBox(width: 22),
+                Expanded(
+                  child: Text(
+                    label.toUpperCase(),
+                    style: const TextStyle(fontSize: 18, letterSpacing: 1.2, color: _ink, fontWeight: FontWeight.w500),
+                  ),
                 ),
-                Text('${t.deviceCode} · ${t.deviceType}', style: const TextStyle(color: Colors.white70)),
-                Text(user.name, style: const TextStyle(color: Colors.white)),
+                if (group) Icon(open ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down, color: _ink, size: 28),
               ],
             ),
           ),
-          if (user.can('cash.in_out') && !t.isCaptain)
-            ListTile(
-              leading: const Icon(Icons.swap_vert),
-              title: const Text('Cash in / paid out'),
-              onTap: () => run(() async {
-                final m = await askCashMovement(context, t.currencyDecimals);
-                if (m == null) return;
-                await shifts.cashMovement(
-                  userId: user.id,
-                  direction: m.direction,
-                  amountMinor: m.amount,
-                  reason: m.reason,
-                );
-                toast('Saved');
-              }),
+        ),
+      );
+    }
+
+    Widget sub(String key, IconData icon, String label, VoidCallback onTap) => InkWell(
+      key: Key('menu-$key'),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(22, 15, 22, 15),
+        child: Row(
+          children: [
+            Icon(icon, color: _ink, size: 26),
+            const SizedBox(width: 22),
+            Expanded(
+              child: Text(label, style: const TextStyle(fontSize: 17, letterSpacing: 0.6, color: Colors.black87)),
             ),
-          if (user.can('shift.open_close') && !t.isCaptain)
-            ListTile(
-              key: const Key('closeShift'),
-              leading: const Icon(Icons.point_of_sale),
-              title: const Text('Close shift'),
-              onTap: () => run(() async {
-                final counted = await askAmount(
-                  context,
-                  title: 'Count the cash in the drawer',
-                  decimals: t.currencyDecimals,
-                );
-                if (counted == null) return;
-                final s = await shifts.closeShift(userId: user.id, countedCashMinor: counted);
-                onShiftChanged();
-                if (context.mounted) await showShiftClosed(context, t, s, counted);
-              }),
+          ],
+        ),
+      ),
+    );
+
+    final cashier = !t.isCaptain;
+    return Drawer(
+      width: 300,
+      backgroundColor: const Color(0xFFF4F2F7),
+      child: SafeArea(
+        child: Column(
+          children: [
+            Expanded(
+              child: ListView(
+                padding: EdgeInsets.zero,
+                children: [
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.fromLTRB(22, 18, 22, 14),
+                    color: HomeColors.navy,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          t.storeName,
+                          style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                        ),
+                        Text(
+                          '${user.name} · ${t.deviceCode} · ${t.deviceType}',
+                          style: const TextStyle(color: Colors.white70),
+                        ),
+                      ],
+                    ),
+                  ),
+                  top(
+                    'cloudSync',
+                    Icons.sync,
+                    'Cloud Sync',
+                    onTap: () => run(() async {
+                      await context.read<TerminalCubit>().syncNow();
+                      toast('Synced');
+                    }),
+                  ),
+                  if (cashier && (user.can('cash.in_out') || user.can('day.close'))) ...[
+                    top('finance', Icons.monetization_on, 'Finance', group: true),
+                    if (_open.contains('finance')) ...[
+                      if (user.can('cash.in_out'))
+                        sub(
+                          'cashInOut',
+                          Icons.swap_vert,
+                          'Cash In / Paid Out',
+                          () => run(() async {
+                            final m = await askCashMovement(context, t.currencyDecimals);
+                            if (m == null) return;
+                            await shifts.cashMovement(
+                              userId: user.id,
+                              direction: m.direction,
+                              amountMinor: m.amount,
+                              reason: m.reason,
+                            );
+                            toast('Saved');
+                          }),
+                        ),
+                      if (user.can('day.close'))
+                        sub(
+                          'closeDay',
+                          Icons.event_available,
+                          'Close Business Day',
+                          () => run(() async {
+                            final totals = await shifts.closeDay(userId: user.id);
+                            toast('Day closed: ${totals['orders']} orders, ${t.money(totals['total_minor'] as int)}');
+                          }),
+                        ),
+                    ],
+                  ],
+                  top('orders', Icons.shopping_cart_outlined, 'Orders', group: true),
+                  if (_open.contains('orders'))
+                    for (final (key, label, ch) in [
+                      ('ordersDineIn', 'Dine In', Channel.dineIn),
+                      ('ordersTakeaway', 'Take Away', Channel.takeaway),
+                      ('ordersDelivery', 'Home Delivery', Channel.homeDelivery),
+                      ('ordersPartner', 'Delivery Partner', Channel.partner),
+                    ])
+                      sub(key, Icons.receipt_long, label, () => push(Routes.ordersFor(ch))),
+                  const Divider(height: 1, color: Colors.black38),
+                  top('settings', Icons.settings, 'Settings', group: true),
+                  if (_open.contains('settings')) ...[
+                    sub('printerSettings', Icons.print, 'Printer Settings', () => push(Routes.printers)),
+                    sub('activation', Icons.power, 'Activation', () => push(Routes.home)),
+                    sub(
+                      'contactUs',
+                      Icons.phone,
+                      'Contact us',
+                      () => run(
+                        () => showDialog<void>(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            title: const Text('Contact us'),
+                            content: Text(
+                              'For help with this terminal contact your store manager or POS administrator.\n\n'
+                              'Store: ${t.storeName}\nTerminal: ${t.deviceCode}',
+                            ),
+                            actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close'))],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                  const Divider(height: 1, color: Colors.black38),
+                  if (cashier && user.can('cash.in_out'))
+                    top(
+                      'openDrawer',
+                      Icons.drag_handle,
+                      'Open Drawer',
+                      onTap: () => run(() async {
+                        final r = await sl<PrintCenter>().openDrawer();
+                        toast(r.ok ? 'Drawer opened' : (r.message('Bill') ?? 'Drawer not opened'));
+                      }),
+                    ),
+                  if (cashier && user.can('shift.open_close'))
+                    top(
+                      'closeShift',
+                      Icons.schedule,
+                      'Shift Close',
+                      onTap: () => run(() async {
+                        final counted = await askAmount(
+                          context,
+                          title: 'Count the cash in the drawer',
+                          decimals: t.currencyDecimals,
+                        );
+                        if (counted == null) return;
+                        final s = await shifts.closeShift(userId: user.id, countedCashMinor: counted);
+                        widget.onShiftChanged();
+                        if (context.mounted) await showShiftClosed(context, t, s, counted);
+                      }),
+                    ),
+                  top(
+                    'lock',
+                    Icons.logout,
+                    'Logout',
+                    onTap: () {
+                      sl<StaffSession>().value = null;
+                      context.go(Routes.lock);
+                    },
+                  ),
+                ],
+              ),
             ),
-          if (user.can('day.close') && !t.isCaptain)
-            ListTile(
-              leading: const Icon(Icons.event_available),
-              title: const Text('Close business day'),
-              onTap: () => run(() async {
-                final totals = await shifts.closeDay(userId: user.id);
-                toast('Day closed: ${totals['orders']} orders, ${t.money(totals['total_minor'] as int)}');
-              }),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 18),
+              child: Text(
+                'Terminal ${t.deviceCode}',
+                style: const TextStyle(fontSize: 13, color: Colors.black54, letterSpacing: 1),
+              ),
             ),
-          ListTile(
-            leading: const Icon(Icons.print_outlined),
-            title: const Text('Printers'),
-            onTap: () {
-              Navigator.pop(context);
-              context.push(Routes.printers);
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.info_outline),
-            title: const Text('Device status'),
-            onTap: () {
-              Navigator.pop(context);
-              context.push(Routes.home);
-            },
-          ),
-          const Divider(),
-          ListTile(
-            key: const Key('lock'),
-            leading: const Icon(Icons.logout),
-            title: const Text('Log out'),
-            onTap: () {
-              sl<StaffSession>().value = null;
-              context.go(Routes.lock);
-            },
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

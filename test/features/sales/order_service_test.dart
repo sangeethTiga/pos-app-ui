@@ -120,17 +120,16 @@ void main() {
     final open = await orders.openOrders();
     expect(open.single.tableId, 't1');
 
+    final running = await checkout.loadOrderCart(placed.orderId);
     final added = await orders.place(
-      cart: Cart(
-        orderType: Channel.dineIn,
-        tableId: 't1',
-        existingOrderId: placed.orderId,
-        lines: [line('c', 500, qty: 2)],
-      ),
+      cart: running.copyWith(lines: [...running.lines, line('c', 500, qty: 2)]),
       settings: settings,
       userId: 'u1',
     );
-    expect([added.orderNo, added.kind], ['P1-000001', 'NEW_ITEMS']);
+    expect(
+      [added.orderNo, added.kind, added.newLines.length, added.cancelledLines.length],
+      ['P1-000001', 'UPDATE', 1, 0],
+    );
     expect((await store.find('orders', placed.orderId))!.data['total_minor'], 3500);
     expect((await store.all('order_line')).length, 3);
   });

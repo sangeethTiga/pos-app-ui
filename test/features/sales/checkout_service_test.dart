@@ -7,6 +7,7 @@ import 'package:pos_app_ui/core/sync/local_store.dart';
 import 'package:pos_app_ui/core/terminal/terminal_context.dart';
 import 'package:pos_app_ui/features/catalogue/data/catalogue_repository.dart';
 import 'package:pos_app_ui/features/printing/data/printer_service.dart';
+import 'package:pos_app_ui/features/printing/domain/printer_device.dart';
 import 'package:pos_app_ui/features/printing/domain/ticket_formatter.dart';
 import 'package:pos_app_ui/features/sales/domain/cart.dart';
 import 'package:pos_app_ui/features/sales/domain/checkout_service.dart';
@@ -155,7 +156,7 @@ void main() {
     final server = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
     final received = <int>[];
     final done = server.first.then((s) => s.listen(received.addAll).asFuture<void>());
-    await PrinterService(store).send('127.0.0.1', server.port, receipt);
+    await PrinterService(store).sendRaw(PrinterDevice.wifi('127.0.0.1', port: server.port), receipt);
     await done;
     await server.close();
     expect(received, receipt);

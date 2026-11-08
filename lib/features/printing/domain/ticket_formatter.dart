@@ -73,13 +73,15 @@ class TicketFormatter {
 
   EscPos kot(CompletedSale s) => kotTicket(tokenNo: s.tokenNo, orderNo: s.orderNo, cart: s.cart, lines: s.cart.lines);
 
-  /// Kitchen ticket. [kind] NEW_ITEMS prints "ADD-ON" for items added to a running order.
+  /// Kitchen ticket. [kind] NEW_ITEMS prints "ADD-ON" for items added to a running order, CANCEL
+  /// prints "CANCEL" for items taken off it.
   EscPos kotTicket({
     required String tokenNo,
     required String orderNo,
     required Cart cart,
     required List<CartLine> lines,
     String kind = 'NEW',
+    String? station,
   }) {
     final where = switch (cart.channel) {
       Channel.dineIn =>
@@ -94,11 +96,16 @@ class TicketFormatter {
       ..align('center')
       ..bold(true)
       ..big(true)
-      ..text(kind == 'NEW_ITEMS' ? 'ADD-ON $tokenNo' : 'KOT $tokenNo')
+      ..text(switch (kind) {
+        'NEW_ITEMS' => 'ADD-ON $tokenNo',
+        'CANCEL' => 'CANCEL $tokenNo',
+        _ => 'KOT $tokenNo',
+      })
       ..big(false)
       ..text(where)
       ..bold(false)
       ..text('Bill $orderNo  ${ctx.deviceCode}');
+    if (station != null) p.text(station.toUpperCase());
     if (cart.captainName != null) p.text('Captain ${cart.captainName}');
     p
       ..align('left')
@@ -116,6 +123,32 @@ class TicketFormatter {
         ..text('NOTE: ${cart.kitchenNote}');
     }
     return p
+      ..line()
+      ..feed(3)
+      ..cut();
+  }
+
+  /// Printer test page.
+  EscPos test(String printerName) {
+    final now = ctx.localNow();
+    return EscPos(width: width)
+      ..align('center')
+      ..bold(true)
+      ..big(true)
+      ..text('TEST TICKET')
+      ..big(false)
+      ..text(ctx.storeName)
+      ..bold(false)
+      ..text(printerName)
+      ..text('Terminal ${ctx.deviceCode}')
+      ..text(
+        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')} '
+        '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}',
+      )
+      ..line()
+      ..align('left')
+      ..row('Left', 'Right')
+      ..text('1234567890' * (width ~/ 10))
       ..line()
       ..feed(3)
       ..cut();

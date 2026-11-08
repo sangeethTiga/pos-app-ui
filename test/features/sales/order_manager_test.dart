@@ -184,21 +184,51 @@ void main() {
     expect((await manager.summaries()).single.state, 'cancelled');
   });
 
-  test('add items to a running order through the home screen intent', () async {
-    final id = await place([line('a', 1000)]);
-    manager.homeIntent = Cart(
-      orderType: Channel.dineIn,
-      tableId: 't1',
-      existingOrderId: id,
-      existingOrderNo: 'P1-000001',
+  test('edit order: whole order on the home screen, update sends add-on and cancel KOTs', () async {
+    final id = await place([line('a', 1000, qty: 2), line('b', 500), line('c', 300)]);
+    final cart = await manager.editCart(id);
+    expect([cart.existingOrderNo, cart.tableName, cart.lines.length], ['P1-000001', 'B4', 3]);
+    final [a, b, _] = cart.lines;
+    // a: 2 -> 3, b: 1 -> 0 (removed), c kept, d new
+    final edited = cart.copyWith(lines: [a.copyWith(qtyMilli: 3000), cart.lines[2], line('d', 400)]);
+
+    expect(
+      () => orders.update(cart: edited, settings: settings, userId: 'u1', canReduce: false),
+      throwsA(isA<SaleException>()),
     );
-    final intent = manager.homeIntent!;
-    await orders.place(
-      cart: intent.copyWith(lines: [line('z', 400)]),
+
+    final up = await orders.update(cart: edited, settings: settings, userId: 'u1');
+    expect(up.kind, 'UPDATE');
+    expect([for (final l in up.newLines) (l.name, l.qtyMilli)], [('Item a', 1000), ('Item d', 1000)]);
+    expect([for (final l in up.cancelledLines) (l.name, l.qtyMilli)], [('Item b', 1000)]);
+    expect((await store.find('order_line', b.key))!.data['kot_status'], 'CANCELLED');
+    expect((await store.find('order_line', a.key))!.data['qty_milli'], 3000);
+    expect((await store.find('orders', id))!.data['total_minor'], 3700);
+    final kots = [
+      for (final c in (await store.pendingTransactions()).last)
+        if (c.entity == 'kot') c.fields['kind'],
+    ];
+    expect(kots, ['NEW_ITEMS', 'CANCEL']);
+
+    // Quick Update Order: no KOT, then settled
+    final again = await manager.editCart(id);
+    final quick = await orders.update(
+      cart: again.copyWith(lines: [...again.lines, line('e', 100)]),
       settings: settings,
       userId: 'u1',
+      sendKot: false,
     );
-    expect((await store.find('orders', id))!.data['total_minor'], 1400);
+    expect(quick.newLines.single.name, 'Item e');
+    expect((await store.pendingTransactions()).last.where((c) => c.entity == 'kot'), isEmpty);
+    await checkout.settleOrder(
+      orderId: id,
+      settings: settings,
+      tenders: [(method: cash, amountMinor: null)],
+      userId: 'u1',
+      cashierName: 'Anu',
+    );
+    expect((await store.find('orders', id))!.data['status'], 'SETTLED');
+    expect(() => manager.editCart(id), throwsA(isA<SaleException>()));
   });
 
   test('dashboard opens on the tab of the order just placed', () async {

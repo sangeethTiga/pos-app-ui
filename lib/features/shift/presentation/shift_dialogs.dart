@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/responsive/pos_popup.dart';
 import '../../../core/terminal/terminal_context.dart';
 import '../../../core/widgets/money_field.dart';
 import '../domain/shift_service.dart';
 
 Future<int?> askAmount(BuildContext context, {required String title, required int decimals, String label = 'Amount'}) {
   final c = TextEditingController();
-  return showDialog<int>(
-    context: context,
-    builder: (ctx) => AlertDialog(
+  return showPosPopup<int>(
+    context,
+    maxWidth: 520,
+    builder: (ctx) => posAlert(
+      ctx,
       title: Text(title),
       content: MoneyField(
         controller: c,
@@ -28,15 +31,18 @@ Future<({String direction, int amount, String reason})?> askCashMovement(BuildCo
   final amount = TextEditingController();
   final reason = TextEditingController();
   var direction = 'OUT';
-  return showDialog(
-    context: context,
+  return showPosPopup(
+    context,
+    maxWidth: 560,
     builder: (ctx) => StatefulBuilder(
-      builder: (ctx, set) => AlertDialog(
+      builder: (ctx, set) => posAlert(
+        ctx,
         title: const Text('Cash in / paid out'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             SegmentedButton<String>(
+              expandedInsets: EdgeInsets.zero,
               segments: const [
                 ButtonSegment(value: 'IN', label: Text('Cash in')),
                 ButtonSegment(value: 'OUT', label: Text('Paid out')),
@@ -69,9 +75,11 @@ Future<({String direction, int amount, String reason})?> askCashMovement(BuildCo
   );
 }
 
-Future<void> showShiftClosed(BuildContext context, TerminalContext t, ShiftSummary s, int counted) => showDialog(
-  context: context,
-  builder: (ctx) => AlertDialog(
+Future<void> showShiftClosed(BuildContext context, TerminalContext t, ShiftSummary s, int counted) => showPosPopup(
+  context,
+  maxWidth: 560,
+  builder: (ctx) => posAlert(
+    ctx,
     title: const Text('Shift closed'),
     content: Column(
       mainAxisSize: MainAxisSize.min,

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -6,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/routes.dart';
 import '../../../../app/theme.dart';
 import '../../../../core/error/failure.dart';
+import '../../../../core/responsive/responsive.dart';
 import '../../../terminal/terminal_cubit.dart';
 import '../../domain/entities/device_session.dart';
 import '../bloc/device_setup_bloc.dart';
@@ -78,16 +81,28 @@ class _DeviceSetupPageState extends State<DeviceSetupPage> {
           if (!state.preview.kiosks.any((k) => k.id == _kioskId)) setState(() => _kioskId = null);
         }
       },
-      builder: (context, state) => Scaffold(
-        backgroundColor: Colors.white,
-        body: SafeArea(child: state is DeviceSetupReady ? _settings(context, state) : _codes(context, state)),
-      ),
+      builder: (context, state) {
+        final r = context.r;
+        final theme = Theme.of(context);
+        // Material text grows on 4K screens (never shrinks on phones); touch-sized checkboxes/radios.
+        final grow = math.max(1.0, r.density);
+        return Theme(
+          data: theme.copyWith(
+            materialTapTargetSize: MaterialTapTargetSize.padded,
+            textTheme: grow == 1 ? theme.textTheme : theme.textTheme.apply(fontSizeFactor: grow),
+          ),
+          child: Scaffold(
+            backgroundColor: Colors.white,
+            body: SafeArea(child: state is DeviceSetupReady ? _settings(context, state, r) : _codes(context, state, r)),
+          ),
+        );
+      },
     );
   }
 
   // ---- Step 1 ---------------------------------------------------------------------------------
 
-  Widget _codes(BuildContext context, DeviceSetupState state) {
+  Widget _codes(BuildContext context, DeviceSetupState state, Responsive r) {
     final busy = state is DeviceSetupVerifying;
     return Column(
       children: [
@@ -95,9 +110,9 @@ class _DeviceSetupPageState extends State<DeviceSetupPage> {
         Expanded(
           child: Center(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
+              padding: EdgeInsets.all(r.gutter * 1.5),
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 460),
+                constraints: BoxConstraints(maxWidth: math.max(460, r.s(600))),
                 child: _SectionCard(
                   child: Form(
                     key: _codesForm,
@@ -156,7 +171,7 @@ class _DeviceSetupPageState extends State<DeviceSetupPage> {
 
   // ---- Step 2 ---------------------------------------------------------------------------------
 
-  Widget _settings(BuildContext context, DeviceSetupReady state) {
+  Widget _settings(BuildContext context, DeviceSetupReady state, Responsive r) {
     final p = state.preview;
     final busy = state.submitting;
     final text = Theme.of(context).textTheme;
@@ -168,177 +183,184 @@ class _DeviceSetupPageState extends State<DeviceSetupPage> {
         ),
         Expanded(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-            child: Form(
-              key: _settingsForm,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Store
-                  Container(
-                    key: const Key('storeCard'),
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey.shade500),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(p.storeName, style: text.titleLarge?.copyWith(fontWeight: FontWeight.w500)),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Store code ${p.storeCode}${p.rePair ? '  ·  re-pairing an existing terminal' : ''}',
-                          style: text.bodySmall?.copyWith(color: Colors.grey.shade600),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 28),
-                  // Device name
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 500),
-                    child: TextFormField(
-                      key: const Key('deviceName'),
-                      controller: _deviceName,
-                      enabled: !busy,
-                      decoration: _input('Device name*'),
-                      validator: _required,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  // Device id + copy
-                  Row(
+            padding: EdgeInsets.fromLTRB(r.gutter, 8, r.gutter, r.s(32) + 8),
+            child: Center(
+              child: ConstrainedBox(
+                // One centred column; wide enough for the cards, not a line across a TV.
+                constraints: BoxConstraints(maxWidth: math.max(560, r.s(860))),
+                child: Form(
+                  key: _settingsForm,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Flexible(
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 450),
-                          child: TextFormField(
-                            key: const Key('hardwareId'),
-                            initialValue: p.hardwareId,
-                            readOnly: true,
-                            decoration: _input(null),
+                      // Store
+                      Container(
+                        key: const Key('storeCard'),
+                        padding: EdgeInsets.symmetric(
+                          horizontal: math.max(16, r.s(28)),
+                          vertical: math.max(16, r.s(24)),
+                        ),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey.shade500),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(p.storeName, style: text.titleLarge?.copyWith(fontWeight: FontWeight.w500)),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Store code ${p.storeCode}${p.rePair ? '  ·  re-pairing an existing terminal' : ''}',
+                              style: text.bodySmall?.copyWith(color: Colors.grey.shade600),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 28),
+                      // Device name
+                      TextFormField(
+                        key: const Key('deviceName'),
+                        controller: _deviceName,
+                        enabled: !busy,
+                        decoration: _input('Device name*'),
+                        validator: _required,
+                      ),
+                      const SizedBox(height: 16),
+                      // Device id + copy
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextFormField(
+                              key: const Key('hardwareId'),
+                              initialValue: p.hardwareId,
+                              readOnly: true,
+                              decoration: _input(null),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          IconButton(
+                            key: const Key('copyHardwareId'),
+                            tooltip: 'Copy device ID',
+                            icon: const Icon(Icons.copy_outlined, size: 28),
+                            onPressed: () async {
+                              await Clipboard.setData(ClipboardData(text: p.hardwareId));
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context)
+                                    .showSnackBar(const SnackBar(content: Text('Device ID copied')));
+                              }
+                            },
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      // Kiosk
+                      _SectionCard(
+                        title: 'KIOSK Settings',
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (p.kiosks.isNotEmpty) ...[
+                              DropdownButtonFormField<String?>(
+                                key: const Key('kiosk'),
+                                initialValue: _kioskId,
+                                isExpanded: true,
+                                decoration: _input(null),
+                                items: [
+                                  const DropdownMenuItem<String?>(child: Text('No kiosk')),
+                                  for (final k in p.kiosks)
+                                    DropdownMenuItem<String?>(
+                                      value: k.id,
+                                      child: Text(k.name, overflow: TextOverflow.ellipsis),
+                                    ),
+                                ],
+                                onChanged: busy ? null : (v) => setState(() => _kioskId = v),
+                              ),
+                              const SizedBox(height: 8),
+                            ],
+                            _CheckRow(
+                              key: const Key('kioskWise'),
+                              label: 'Kiosk Wise Order Listing',
+                              value: _kioskWise,
+                              onChanged: busy ? null : (v) => setState(() => _kioskWise = v),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 22),
+                      // Role
+                      _SectionCard(
+                        child: RadioGroup<DeviceType>(
+                          groupValue: _type,
+                          onChanged: (v) {
+                            if (!busy && v != null) setState(() => _type = v);
+                          },
+                          child: Column(
+                            children: [
+                              for (final t in DeviceType.values)
+                                InkWell(
+                                  key: Key('type-${t.name}'),
+                                  onTap: busy ? null : () => setState(() => _type = t),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 10),
+                                    child: Row(
+                                      children: [
+                                        Radio<DeviceType>(value: t, activeColor: PosColors.accent),
+                                        SizedBox(width: r.s(24)),
+                                        Flexible(
+                                          child: Text(
+                                            t == DeviceType.cashier ? 'Cashier Device' : 'Captain Device',
+                                            style: text.titleLarge?.copyWith(letterSpacing: 0.4),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      IconButton(
-                        key: const Key('copyHardwareId'),
-                        tooltip: 'Copy device ID',
-                        icon: const Icon(Icons.copy_outlined, size: 28),
-                        onPressed: () async {
-                          await Clipboard.setData(ClipboardData(text: p.hardwareId));
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context)
-                                .showSnackBar(const SnackBar(content: Text('Device ID copied')));
-                          }
-                        },
+                      const SizedBox(height: 22),
+                      // Delivery manager
+                      _SectionCard(
+                        title: 'Delivery Manager Settings',
+                        child: Padding(
+                          padding: const EdgeInsets.only(left: 16),
+                          child: Column(
+                            children: [
+                              _CheckRow(
+                                key: const Key('deliveryManagerPos'),
+                                label: 'Delivery Manager POS',
+                                value: _deliveryManager,
+                                onChanged: busy ? null : (v) => setState(() => _deliveryManager = v),
+                              ),
+                              _CheckRow(
+                                key: const Key('settleAssignedOnly'),
+                                label: 'Settle Assigned Orders Only',
+                                value: _settleAssignedOnly,
+                                onChanged: busy ? null : (v) => setState(() => _settleAssignedOnly = v),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      if (state.failure != null) ...[
+                        const SizedBox(height: 16),
+                        _Error(state.failure!, key: const Key('setupError')),
+                      ],
+                      const SizedBox(height: 24),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: _NavyButton(
+                          key: const Key('registerButton'),
+                          label: 'Register Device',
+                          busy: busy,
+                          onPressed: _register,
+                        ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
-                  // Kiosk
-                  _SectionCard(
-                    title: 'KIOSK Settings',
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (p.kiosks.isNotEmpty) ...[
-                          SizedBox(
-                            width: 312,
-                            child: DropdownButtonFormField<String?>(
-                              key: const Key('kiosk'),
-                              initialValue: _kioskId,
-                              decoration: _input(null),
-                              items: [
-                                const DropdownMenuItem<String?>(child: Text('No kiosk')),
-                                for (final k in p.kiosks) DropdownMenuItem<String?>(value: k.id, child: Text(k.name)),
-                              ],
-                              onChanged: busy ? null : (v) => setState(() => _kioskId = v),
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                        ],
-                        _CheckRow(
-                          key: const Key('kioskWise'),
-                          label: 'Kiosk Wise Order Listing',
-                          value: _kioskWise,
-                          onChanged: busy ? null : (v) => setState(() => _kioskWise = v),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 22),
-                  // Role
-                  _SectionCard(
-                    child: RadioGroup<DeviceType>(
-                      groupValue: _type,
-                      onChanged: (v) {
-                        if (!busy && v != null) setState(() => _type = v);
-                      },
-                      child: Column(
-                        children: [
-                          for (final t in DeviceType.values)
-                            InkWell(
-                              key: Key('type-${t.name}'),
-                              onTap: busy ? null : () => setState(() => _type = t),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 10),
-                                child: Row(
-                                  children: [
-                                    Radio<DeviceType>(value: t, activeColor: PosColors.accent),
-                                    const SizedBox(width: 24),
-                                    Flexible(
-                                      child: Text(
-                                        t == DeviceType.cashier ? 'Cashier Device' : 'Captain Device',
-                                        style: text.titleLarge?.copyWith(letterSpacing: 0.4),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 22),
-                  // Delivery manager
-                  _SectionCard(
-                    title: 'Delivery Manager Settings',
-                    child: Padding(
-                      padding: const EdgeInsets.only(left: 16),
-                      child: Column(
-                        children: [
-                          _CheckRow(
-                            key: const Key('deliveryManagerPos'),
-                            label: 'Delivery Manager POS',
-                            value: _deliveryManager,
-                            onChanged: busy ? null : (v) => setState(() => _deliveryManager = v),
-                          ),
-                          _CheckRow(
-                            key: const Key('settleAssignedOnly'),
-                            label: 'Settle Assigned Orders Only',
-                            value: _settleAssignedOnly,
-                            onChanged: busy ? null : (v) => setState(() => _settleAssignedOnly = v),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  if (state.failure != null) ...[
-                    const SizedBox(height: 16),
-                    _Error(state.failure!, key: const Key('setupError')),
-                  ],
-                  const SizedBox(height: 24),
-                  _NavyButton(
-                    key: const Key('registerButton'),
-                    label: 'Register Device',
-                    busy: busy,
-                    onPressed: _register,
-                  ),
-                ],
+                ),
               ),
             ),
           ),
@@ -368,25 +390,37 @@ class _Header extends StatelessWidget {
   final VoidCallback? onBack;
 
   @override
-  Widget build(BuildContext context) => SizedBox(
-    width: double.infinity,
-    height: 72,
-    child: Stack(
-      alignment: Alignment.center,
-      children: [
-        if (onBack != null)
-          Positioned(
-            left: 4,
-            child: IconButton(
-              key: const Key('backButton'),
-              icon: const Icon(Icons.arrow_back_ios_new),
-              onPressed: onBack,
+  Widget build(BuildContext context) {
+    final r = context.r;
+    return SizedBox(
+      width: double.infinity,
+      height: math.max(56, r.s(72)),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          if (onBack != null)
+            Positioned(
+              left: 4,
+              child: IconButton(
+                key: const Key('backButton'),
+                icon: const Icon(Icons.arrow_back_ios_new),
+                onPressed: onBack,
+              ),
+            ),
+          // Clear of the back button; one line.
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: r.minTap + 12),
+            child: Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.headlineMedium?.copyWith(color: Colors.black),
             ),
           ),
-        Text(title, style: Theme.of(context).textTheme.headlineMedium?.copyWith(color: Colors.black)),
-      ],
-    ),
-  );
+        ],
+      ),
+    );
+  }
 }
 
 class _SectionCard extends StatelessWidget {
@@ -396,25 +430,22 @@ class _SectionCard extends StatelessWidget {
   final String? title;
 
   @override
-  Widget build(BuildContext context) => ConstrainedBox(
-    constraints: const BoxConstraints(maxWidth: 375),
-    child: Material(
-      color: PosColors.card,
-      elevation: 1.5,
-      shadowColor: Colors.black26,
-      borderRadius: BorderRadius.circular(14),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (title != null) ...[
-              Text(title!, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 14),
-            ],
-            child,
+  Widget build(BuildContext context) => Material(
+    color: PosColors.card,
+    elevation: 1.5,
+    shadowColor: Colors.black26,
+    borderRadius: BorderRadius.circular(14),
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (title != null) ...[
+            Text(title!, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 14),
           ],
-        ),
+          child,
+        ],
       ),
     ),
   );
@@ -455,8 +486,8 @@ class _NavyButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => SizedBox(
-    width: 232,
-    height: 46,
+    width: math.max(232, context.r.s(300)),
+    height: context.r.tap(56),
     child: FilledButton(
       style: FilledButton.styleFrom(
         backgroundColor: PosColors.navy,
@@ -465,7 +496,12 @@ class _NavyButton extends StatelessWidget {
       onPressed: busy ? null : onPressed,
       child: busy
           ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-          : Text(label, style: const TextStyle(fontSize: 16, color: Colors.white)),
+          : Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: math.max(16, context.r.f(18)), color: Colors.white),
+            ),
     ),
   );
 }

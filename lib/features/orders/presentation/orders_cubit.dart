@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:bloc/bloc.dart';
 
 import '../../catalogue/data/catalogue_repository.dart';
@@ -59,7 +61,20 @@ class OrdersState {
 }
 
 class OrdersCubit extends Cubit<OrdersState> {
-  OrdersCubit(this._orders, this._catalogue) : super(const OrdersState());
+  OrdersCubit(this._orders, this._catalogue) : super(const OrdersState()) {
+    // Other cashiers' orders arrive through sync: reload live.
+    _remote = _orders.remoteChanges.listen((_) {
+      if (!isClosed) load();
+    });
+  }
+
+  late final StreamSubscription<void> _remote;
+
+  @override
+  Future<void> close() async {
+    await _remote.cancel();
+    return super.close();
+  }
 
   final OrderManager _orders;
   final CatalogueRepository _catalogue;

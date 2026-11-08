@@ -146,7 +146,10 @@ class ShiftService {
     if (await openShift() != null) throw StateError('Close the shift on this terminal first.');
     final orders = (await _store.all('orders')).where((o) => o.data['business_day_id'] == day.id).toList();
     final settled = orders.where((o) => o.data['status'] == 'SETTLED');
-    final payments = (await _store.all('payment')).where((p) => p.data['business_date'] == day.data['business_date']);
+    // Payments of this day's orders only (other terminals' orders and payments are on this
+    // terminal too, under their own business day).
+    final orderIds = {for (final o in orders) o.id};
+    final payments = (await _store.all('payment')).where((p) => orderIds.contains(p.data['order_id']));
     final byKind = <String, int>{};
     for (final p in payments) {
       byKind.update(

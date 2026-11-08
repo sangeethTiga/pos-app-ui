@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -6,6 +7,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/routes.dart';
 import '../../../../core/di/injection.dart';
+import '../../../../core/responsive/responsive.dart';
 import '../../../../core/terminal/terminal_context.dart';
 import '../../../catalogue/data/catalogue_repository.dart';
 import '../../../printing/data/print_center.dart';
@@ -25,8 +27,15 @@ import '../widgets/home_dialogs.dart';
 import '../widgets/payment_dialog.dart';
 
 /// Terminal home screen: categories, products, order types, cart, Hold / Quick Order / Place Order.
-/// Wide (≥ 1100): categories | products | cart. Medium: category strip on top. Narrow (< 700): one
-/// column with a cart bar that opens the cart.
+///
+/// Laid out for the space it has (no scaling of the whole screen):
+/// * [Responsive.splitPane] and wider: products | cart side by side. The category column has two
+///   columns of tiles when there is room, one column when tighter, and becomes a strip on top of
+///   the products when the left pane is narrow. Products page with Prev / Next; a page is exactly
+///   the grid that fits.
+/// * Narrower (phones, tablets in portrait, phone landscape): category strip, scrolling product
+///   grid and a cart bar that opens the cart as a bottom sheet.
+/// Sizes come from the [Responsive] tokens, so text and touch targets suit every screen class.
 class SellPage extends StatefulWidget {
   const SellPage({super.key});
 
@@ -60,17 +69,21 @@ class _SellPageState extends State<SellPage> {
     super.dispose();
   }
 
-  /// Snackbar; on wide screens it floats bottom-left so it never covers the cart buttons.
+  /// Snackbar; with the cart beside the products it floats bottom-left so it never covers the
+  /// cart buttons.
   void _toast(String m) {
-    final w = MediaQuery.sizeOf(context).width;
+    final r = context.r;
+    final width = math.max(360.0, r.s(520));
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
           content: Text(m),
           duration: const Duration(seconds: 3),
-          behavior: w < 700 ? null : SnackBarBehavior.floating,
-          margin: w < 700 ? null : EdgeInsets.only(left: 12, bottom: 12, right: w - 12 - 440),
+          behavior: r.splitPane ? SnackBarBehavior.floating : null,
+          margin: r.splitPane
+              ? EdgeInsets.only(left: r.gutter, bottom: r.gutter, right: math.max(r.gutter, r.width - r.gutter - width))
+              : null,
         ),
       );
   }
@@ -93,108 +106,72 @@ class _SellPageState extends State<SellPage> {
                 : !s.shiftOpen && !captainDevice
                 ? Column(
                     children: [
-                      _TopBar(
-                        state: s,
-                        cubit: cubit,
-                        compact: true,
-                        kotPrinterMissing: false,
-                        onMenu: () => _scaffold.currentState?.openDrawer(),
-                        onRecall: (h) => cubit.recall(h),
-                      ),
+                      _topBar(s, cubit, kotPrinterMissing: false),
                       Expanded(child: _OpenShift(onOpened: cubit.refreshShift)),
                     ],
                   )
-                : LayoutBuilder(builder: (context, c) => _scaled(context, c, s, cubit)),
+                : ResponsiveBuilder(builder: (context, r) => _layout(context, r, s, cubit)),
           ),
         );
       },
     );
   }
 
-  /// Width the home screen is designed at. Wider and narrower screens (≥ 700) get the same
-  /// layout scaled, so it looks the same on a 10" tablet and a 27" monitor.
-  static const designWidth = 1780.0;
+  Widget _topBar(SellState s, SellCubit cubit, {required bool kotPrinterMissing}) => _TopBar(
+    state: s,
+    cubit: cubit,
+    kotPrinterMissing: kotPrinterMissing,
+    onMenu: () => _scaffold.currentState?.openDrawer(),
+    onRecall: (h) => cubit.recall(h),
+  );
 
-  Widget _scaled(BuildContext context, BoxConstraints c, SellState s, SellCubit cubit) {
-    if (c.maxWidth < 700) return _layout(context, c, s, cubit);
-    final scale = (c.maxWidth / designWidth).clamp(0.6, 1.6);
-    final size = Size(c.maxWidth / scale, c.maxHeight / scale);
-    final mq = MediaQuery.of(context);
-    return SizedBox(
-      width: c.maxWidth,
-      height: c.maxHeight,
-      child: FittedBox(
-        fit: BoxFit.fill,
-        alignment: Alignment.topLeft,
-        child: SizedBox.fromSize(
-          size: size,
-          child: MediaQuery(
-            data: mq.copyWith(size: size),
-            child: _layout(context, BoxConstraints.tight(size), s, cubit),
-          ),
-        ),
-      ),
-    );
-  }
+  Widget _cart(SellState s, SellCubit cubit) => _CartPanel(
+    state: s,
+    t: t,
+    captainDevice: t.isCaptain,
+    onChannel: (ch) => _channel(ch, s, cubit),
+    onEditLine: (l) => _editLine(l, cubit),
+    onQty: cubit.changeQty,
+    onHold: () => cubit.hold(user.id),
+    onQuick: () => _quickOrder(s, cubit),
+    onPlace: () => _place(cubit),
+    onDeliveryCharge: () => _deliveryCharge(s, cubit),
+  );
 
-  Widget _layout(BuildContext context, BoxConstraints c, SellState s, SellCubit cubit) {
-    final w = c.maxWidth;
-    final cartWidth = w >= 1100 ? (w * 0.33).clamp(360.0, 700.0) : 360.0;
-    final top = _TopBar(
-      state: s,
-      cubit: cubit,
-      compact: w < 700 || w - cartWidth < 980,
-      kotPrinterMissing: _kotPrinterMissing ?? false,
-      onMenu: () => _scaffold.currentState?.openDrawer(),
-      onRecall: (h) => cubit.recall(h),
-    );
+  _ActionButtons _actions(SellState s, SellCubit cubit, _ActionsLayout layout) => _ActionButtons(
+    layout: layout,
+    onKitchenNote: () => _kitchenNote(s, cubit),
+    onDiscount: () => _discount(s, cubit),
+    onOpenFood: () => _openFood(cubit),
+    onNewOrder: () => _newOrder(s, cubit),
+    onOrders: () async {
+      await context.push(Routes.orders);
+      if (mounted) cubit.load();
+    },
+  );
+
+  /// [r] describes the body (screen minus safe areas and keyboard).
+  Widget _layout(BuildContext context, Responsive r, SellState s, SellCubit cubit) {
+    final top = _topBar(s, cubit, kotPrinterMissing: _kotPrinterMissing ?? false);
     final searchRow = _SearchRow(
       search: _search,
       barcode: _barcode,
-      compact: w < 700,
       onSearch: cubit.searchFor,
       onBarcode: (code) async {
         if (await cubit.addBarcode(code)) _barcode.clear();
       },
     );
-    final actions = _ActionButtons(
-      compact: w < 700,
-      onKitchenNote: () => _kitchenNote(s, cubit),
-      onDiscount: () => _discount(s, cubit),
-      onOpenFood: () => _openFood(cubit),
-      onNewOrder: () => _newOrder(s, cubit),
-      onOrders: () async {
-        await context.push(Routes.orders);
-        if (mounted) cubit.load();
-      },
-    );
-    final cart = _CartPanel(
-      state: s,
-      t: t,
-      captainDevice: t.isCaptain,
-      onChannel: (ch) => _channel(ch, s, cubit),
-      onEditLine: (l) => _editLine(l, cubit),
-      onQty: cubit.changeQty,
-      onHold: () => cubit.hold(user.id),
-      onQuick: () => _quickOrder(s, cubit),
-      onPlace: () => _place(cubit),
-      onDeliveryCharge: () => _deliveryCharge(s, cubit),
-    );
+    if (!r.splitPane) return _narrowLayout(context, r, s, cubit, top, searchRow);
 
-    if (w < 700) {
-      return Column(
-        children: [
-          top,
-          searchRow,
-          _CategoryStrip(state: s, cubit: cubit),
-          Expanded(
-            child: _ProductGrid(state: s, cubit: cubit, paged: false),
-          ),
-          actions,
-          _CartBar(state: s, t: t, onOpen: () => _openCartSheet(cubit)),
-        ],
-      );
-    }
+    // Products | cart. The cart keeps about a third of the width, within finger-friendly limits.
+    final cartWidth = (r.width * 0.32).clamp(340.0, math.max<double>(340.0, r.s(600)));
+    final left = r.width - cartWidth;
+    final categoryCols = left >= r.s(1150) ? 2 : (left >= r.s(760) ? 1 : 0);
+    final categoryWidth = categoryCols == 2
+        ? (left * 0.27).clamp(r.s(260), r.s(400))
+        : (left * 0.22).clamp(r.s(170), r.s(240));
+    // Two rows of big action buttons only when the screen is tall for its density.
+    final actions = _actions(s, cubit, r.height >= r.s(1070) ? _ActionsLayout.twoRows : _ActionsLayout.oneRow);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -203,21 +180,21 @@ class _SellPageState extends State<SellPage> {
             children: [
               top,
               searchRow,
-              if (w < 1100) _CategoryStrip(state: s, cubit: cubit),
+              if (categoryCols == 0) _CategoryStrip(state: s, cubit: cubit),
               Expanded(
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    if (w >= 1100)
+                    if (categoryCols > 0)
                       SizedBox(
-                        width: (w * 0.2).clamp(260.0, 400.0),
-                        child: _CategoryGrid(state: s, cubit: cubit),
+                        width: categoryWidth,
+                        child: _CategoryGrid(state: s, cubit: cubit, columns: categoryCols),
                       ),
                     Expanded(
                       child: Column(
                         children: [
                           Expanded(
-                            child: _ProductGrid(state: s, cubit: cubit, paged: true),
+                            child: _PagedProductGrid(state: s, cubit: cubit),
                           ),
                           actions,
                         ],
@@ -229,7 +206,36 @@ class _SellPageState extends State<SellPage> {
             ],
           ),
         ),
-        SizedBox(width: cartWidth, child: cart),
+        SizedBox(width: cartWidth, child: _cart(s, cubit)),
+      ],
+    );
+  }
+
+  /// Phones, tablets in portrait, phone landscape: one column with a cart bar opening the cart.
+  Widget _narrowLayout(BuildContext context, Responsive r, SellState s, SellCubit cubit, Widget top, Widget searchRow) {
+    // The page's own context: the Scaffold hides the keyboard inset from its body.
+    final keyboard = MediaQuery.viewInsetsOf(this.context).bottom;
+    // Header stays put on tall screens; on short ones (phone landscape, small phones) it scrolls
+    // away with the products. Decided without the keyboard so opening it never moves the fields.
+    final pinHeader = r.height + keyboard >= r.s(900);
+    final strip = _CategoryStrip(state: s, cubit: cubit);
+    return Column(
+      children: [
+        if (pinHeader) ...[top, searchRow, strip],
+        Expanded(
+          child: CustomScrollView(
+            slivers: [
+              if (!pinHeader) ...[
+                SliverToBoxAdapter(child: top),
+                SliverToBoxAdapter(child: searchRow),
+                SliverToBoxAdapter(child: strip),
+              ],
+              _ProductSliverGrid(state: s, cubit: cubit),
+            ],
+          ),
+        ),
+        if (keyboard == 0) _actions(s, cubit, _ActionsLayout.strip),
+        _CartBar(state: s, t: t, onOpen: () => _openCartSheet(cubit)),
       ],
     );
   }
@@ -237,25 +243,15 @@ class _SellPageState extends State<SellPage> {
   Future<void> _openCartSheet(SellCubit cubit) => showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
+    useSafeArea: true,
+    // Full width (Material 3 caps sheets at 640): landscape phones put lines and totals side by side.
+    constraints: const BoxConstraints(),
     backgroundColor: HomeColors.page,
     builder: (_) => BlocProvider.value(
       value: cubit,
       child: FractionallySizedBox(
         heightFactor: 0.92,
-        child: BlocBuilder<SellCubit, SellState>(
-          builder: (ctx, s) => _CartPanel(
-            state: s,
-            t: t,
-            captainDevice: t.isCaptain,
-            onChannel: (ch) => _channel(ch, s, cubit),
-            onEditLine: (l) => _editLine(l, cubit),
-            onQty: cubit.changeQty,
-            onHold: () => cubit.hold(user.id),
-            onQuick: () => _quickOrder(s, cubit),
-            onPlace: () => _place(cubit),
-            onDeliveryCharge: () => _deliveryCharge(s, cubit),
-          ),
-        ),
+        child: BlocBuilder<SellCubit, SellState>(builder: (ctx, s) => _cart(s, cubit)),
       ),
     ),
   );
@@ -434,167 +430,229 @@ class _SellPageState extends State<SellPage> {
   }
 }
 
+// ---- shared bits -------------------------------------------------------------------------------------
+
+/// Short text (a number, a one-word label) that shrinks rather than wrap or overflow its box.
+Widget _fit(Widget child, {AlignmentGeometry alignment = Alignment.center}) =>
+    FittedBox(fit: BoxFit.scaleDown, alignment: alignment, child: child);
+
+/// Room a line of [fontSize] text takes at the current text scale (with a little leading).
+double _lineHeight(BuildContext context, double fontSize) => MediaQuery.textScalerOf(context).scale(fontSize) * 1.25;
+
 // ---- top bar ---------------------------------------------------------------------------------------
 
 class _TopBar extends StatelessWidget {
   const _TopBar({
     required this.state,
     required this.cubit,
-    required this.compact,
     required this.kotPrinterMissing,
     required this.onMenu,
     required this.onRecall,
   });
   final SellState state;
   final SellCubit cubit;
-  final bool compact, kotPrinterMissing;
+  final bool kotPrinterMissing;
   final VoidCallback onMenu;
   final ValueChanged<HeldCart> onRecall;
 
   @override
   Widget build(BuildContext context) {
+    final r = context.r;
     final term = context.watch<TerminalCubit>().state;
     final online = term.lastReport?.result != SyncResult.failed;
     final t = sl<TerminalContextHolder>().ctx;
-    final phone = MediaQuery.sizeOf(context).width < 700;
-    final fs = phone ? 15.0 : 22.0;
+    final fs = r.f(22);
+    final h = r.tap(58);
+    final shape = RoundedRectangleBorder(borderRadius: BorderRadius.circular(6));
     return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 10, 8, 6),
-      child: Row(
-        children: [
-          IconButton(
-            key: const Key('homeMenu'),
-            onPressed: onMenu,
-            icon: Icon(Icons.menu, size: phone ? 24 : 30),
-          ),
-          SizedBox(width: phone ? 0 : 8),
-          FilledButton.icon(
-            key: const Key('onlineChip'),
-            style: FilledButton.styleFrom(
-              backgroundColor: online ? HomeColors.green : Colors.red.shade400,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-              padding: EdgeInsets.symmetric(horizontal: compact ? 10 : 18, vertical: phone ? 10 : 16),
-            ),
-            onPressed: term.syncing ? null : () => context.read<TerminalCubit>().syncNow(),
-            icon: Icon(online ? Icons.wifi : Icons.wifi_off, size: phone ? 20 : 28),
-            label: Text(term.syncing ? 'Syncing' : (online ? 'Online' : 'Offline'), style: TextStyle(fontSize: fs)),
-          ),
-          if (kotPrinterMissing && !compact) ...[
-            const SizedBox(width: 6),
-            const Icon(Icons.warning_amber_rounded, color: Colors.redAccent),
-            const Flexible(
-              child: Text(
-                'KOT printer not configured',
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(color: Colors.redAccent, fontSize: 21),
+      padding: EdgeInsets.fromLTRB(r.s(8), r.s(10), r.s(8), r.s(6)),
+      child: LayoutBuilder(
+        builder: (context, c) {
+          // Less important items collapse as the bar gets narrower.
+          final full = c.maxWidth >= r.s(1150); // KOT warning in words, "Fix it"
+          final roomy = c.maxWidth >= r.s(700); // "Held Orders", "Refresh" labels
+          final tiny = c.maxWidth < r.s(520); // online chip as an icon
+          final onlineLabel = term.syncing ? 'Syncing' : (online ? 'Online' : 'Offline');
+          final onlineStyle = FilledButton.styleFrom(
+            backgroundColor: online ? HomeColors.green : Colors.red.shade400,
+            shape: shape,
+            minimumSize: Size(r.minTap, h),
+            padding: EdgeInsets.symmetric(horizontal: tiny ? r.s(10) : r.s(18)),
+          );
+          final onSync = term.syncing ? null : () => context.read<TerminalCubit>().syncNow();
+          final onlineIcon = Icon(online ? Icons.wifi : Icons.wifi_off, size: r.f(28));
+          return Row(
+            children: [
+              IconButton(
+                key: const Key('homeMenu'),
+                onPressed: onMenu,
+                icon: Icon(Icons.menu, size: r.f(30)),
               ),
-            ),
-            const SizedBox(width: 10),
-            OutlinedButton(
-              key: const Key('fixPrinter'),
-              style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14)),
-              onPressed: () => context.push(Routes.printers),
-              child: const Text(
-                'Fix it',
-                style: TextStyle(fontSize: 22, color: Colors.black87, fontWeight: FontWeight.w600),
+              SizedBox(width: tiny ? 0 : r.s(8)),
+              if (tiny)
+                Tooltip(
+                  message: onlineLabel,
+                  child: FilledButton(
+                    key: const Key('onlineChip'),
+                    style: onlineStyle,
+                    onPressed: onSync,
+                    child: onlineIcon,
+                  ),
+                )
+              else
+                FilledButton.icon(
+                  key: const Key('onlineChip'),
+                  style: onlineStyle,
+                  onPressed: onSync,
+                  icon: onlineIcon,
+                  label: Text(onlineLabel, style: TextStyle(fontSize: fs)),
+                ),
+              if (kotPrinterMissing && full) ...[
+                SizedBox(width: r.s(6)),
+                Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: r.f(28)),
+                Flexible(
+                  child: Text(
+                    'KOT printer not configured',
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                    style: TextStyle(color: Colors.redAccent, fontSize: r.f(21)),
+                  ),
+                ),
+                SizedBox(width: r.s(10)),
+                OutlinedButton(
+                  key: const Key('fixPrinter'),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: Size(r.minTap, h),
+                    padding: EdgeInsets.symmetric(horizontal: r.s(16)),
+                    shape: shape,
+                  ),
+                  onPressed: () => context.push(Routes.printers),
+                  child: Text(
+                    'Fix it',
+                    style: TextStyle(fontSize: fs, color: Colors.black87, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ] else if (kotPrinterMissing)
+                IconButton(
+                  key: const Key('fixPrinter'),
+                  tooltip: 'KOT printer not configured',
+                  onPressed: () => context.push(Routes.printers),
+                  icon: Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: r.f(30)),
+                ),
+              SizedBox(width: r.s(8)),
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: _heldMenu(context, r, t, fs, h, roomy: roomy),
+                ),
               ),
-            ),
-          ],
-          const Spacer(),
-          PopupMenuButton<HeldCart>(
-            key: const Key('heldOrders'),
-            tooltip: 'Held orders',
-            onSelected: onRecall,
-            itemBuilder: (_) => state.held.isEmpty
-                ? [const PopupMenuItem(enabled: false, child: Text('No held orders'))]
-                : [
-                    for (final h in state.held)
-                      PopupMenuItem(
-                        value: h,
-                        child: ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: Text(h.label),
-                          subtitle: Text('${h.cart.itemCount} items · ${t.money(h.totalMinor)}'),
-                          trailing: IconButton(
-                            icon: const Icon(Icons.delete_outline),
-                            onPressed: () {
-                              Navigator.pop(context);
-                              cubit.discardHeld(h, sl<StaffSession>().user.id);
-                            },
-                          ),
-                        ),
+              SizedBox(width: tiny ? r.s(4) : r.s(12)),
+              OutlinedButton(
+                key: const Key('refresh'),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: Size(r.minTap, h),
+                  padding: EdgeInsets.symmetric(horizontal: roomy ? r.s(22) : r.s(8)),
+                  shape: shape,
+                ),
+                onPressed: () {
+                  context.read<TerminalCubit>().syncNow();
+                  cubit.refresh();
+                },
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (roomy)
+                      Text(
+                        'Refresh ',
+                        style: TextStyle(fontSize: fs, color: Colors.black87, fontWeight: FontWeight.w600),
                       ),
+                    Icon(Icons.refresh, color: Colors.black87, size: r.f(28)),
                   ],
-            child: Container(
-              padding: EdgeInsets.symmetric(horizontal: compact ? 8 : 14, vertical: phone ? 9 : 12),
-              decoration: BoxDecoration(color: HomeColors.navy, borderRadius: BorderRadius.circular(6)),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    compact ? 'Held(${state.held.length})' : 'Held Orders(${state.held.length})',
-                    style: TextStyle(color: Colors.white, fontSize: fs),
-                  ),
-                  const Icon(Icons.arrow_drop_down, color: Colors.white),
-                ],
+                ),
               ),
-            ),
-          ),
-          SizedBox(width: phone ? 4 : 12),
-          OutlinedButton(
-            key: const Key('refresh'),
-            style: OutlinedButton.styleFrom(
-              minimumSize: Size.zero,
-              padding: EdgeInsets.symmetric(horizontal: compact ? 8 : 22, vertical: phone ? 10 : 16),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-            ),
-            onPressed: () {
-              context.read<TerminalCubit>().syncNow();
-              cubit.refresh();
-            },
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (!compact)
-                  const Text(
-                    'Refresh ',
-                    style: TextStyle(fontSize: 22, color: Colors.black87, fontWeight: FontWeight.w600),
-                  ),
-                const Icon(Icons.refresh, color: Colors.black87),
-              ],
-            ),
-          ),
-          IconButton(
-            key: const Key('togglePrices'),
-            tooltip: state.showPrices ? 'Hide prices' : 'Show prices',
-            onPressed: cubit.togglePrices,
-            icon: Icon(state.showPrices ? Icons.visibility : Icons.visibility_off, size: phone ? 22 : 28),
-          ),
-        ],
+              IconButton(
+                key: const Key('togglePrices'),
+                tooltip: state.showPrices ? 'Hide prices' : 'Show prices',
+                onPressed: cubit.togglePrices,
+                icon: Icon(state.showPrices ? Icons.visibility : Icons.visibility_off, size: r.f(28)),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
+
+  Widget _heldMenu(BuildContext context, Responsive r, TerminalContext t, double fs, double h, {required bool roomy}) =>
+      PopupMenuButton<HeldCart>(
+        key: const Key('heldOrders'),
+        tooltip: 'Held orders',
+        onSelected: onRecall,
+        itemBuilder: (_) => state.held.isEmpty
+            ? [const PopupMenuItem(enabled: false, child: Text('No held orders'))]
+            : [
+                for (final h in state.held)
+                  PopupMenuItem(
+                    value: h,
+                    child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(h.label),
+                      subtitle: Text('${h.cart.itemCount} items · ${t.money(h.totalMinor)}'),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.delete_outline),
+                        onPressed: () {
+                          Navigator.pop(context);
+                          cubit.discardHeld(h, sl<StaffSession>().user.id);
+                        },
+                      ),
+                    ),
+                  ),
+              ],
+        child: Container(
+          constraints: BoxConstraints(minHeight: h),
+          padding: EdgeInsets.symmetric(horizontal: roomy ? r.s(14) : r.s(8)),
+          decoration: BoxDecoration(color: HomeColors.navy, borderRadius: BorderRadius.circular(6)),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(
+                child: roomy
+                    ? Text(
+                        'Held Orders(${state.held.length})',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: Colors.white, fontSize: fs),
+                      )
+                    // Short label: shrinks rather than lose the count on the narrowest phones.
+                    : _fit(
+                        Text(
+                          'Held(${state.held.length})',
+                          style: TextStyle(color: Colors.white, fontSize: fs),
+                        ),
+                      ),
+              ),
+              if (roomy) Icon(Icons.arrow_drop_down, color: Colors.white, size: r.f(30)),
+            ],
+          ),
+        ),
+      );
 }
 
 class _SearchRow extends StatelessWidget {
-  const _SearchRow({
-    required this.search,
-    required this.barcode,
-    required this.compact,
-    required this.onSearch,
-    required this.onBarcode,
-  });
+  const _SearchRow({required this.search, required this.barcode, required this.onSearch, required this.onBarcode});
   final TextEditingController search, barcode;
-  final bool compact;
   final ValueChanged<String> onSearch;
   final ValueChanged<String> onBarcode;
 
-  InputDecoration _dec(String hint, TextEditingController c, VoidCallback onClear) => InputDecoration(
+  InputDecoration _dec(Responsive r, String hint, VoidCallback onClear) => InputDecoration(
     hintText: hint,
-    prefixIcon: const Icon(Icons.search, size: 28),
-    suffixIcon: IconButton(icon: const Icon(Icons.close), onPressed: onClear),
+    prefixIcon: Icon(Icons.search, size: r.f(28)),
+    suffixIcon: IconButton(
+      icon: Icon(Icons.close, size: r.f(26)),
+      onPressed: onClear,
+    ),
     isDense: true,
-    contentPadding: const EdgeInsets.symmetric(vertical: 16),
+    contentPadding: EdgeInsets.symmetric(vertical: r.s(16), horizontal: r.s(12)),
     border: OutlineInputBorder(borderRadius: BorderRadius.circular(4)),
     enabledBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(4),
@@ -604,12 +662,15 @@ class _SearchRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final r = context.r;
+    final style = TextStyle(fontSize: r.f(20));
     final searchField = TextField(
       key: const Key('search'),
       controller: search,
       onChanged: onSearch,
-      style: const TextStyle(fontSize: 20),
-      decoration: _dec('Search products', search, () {
+      style: style,
+      scrollPadding: EdgeInsets.all(r.s(20)),
+      decoration: _dec(r, 'Search products', () {
         search.clear();
         onSearch('');
       }),
@@ -618,44 +679,49 @@ class _SearchRow extends StatelessWidget {
       key: const Key('barcode'),
       controller: barcode,
       onSubmitted: onBarcode,
-      style: const TextStyle(fontSize: 20),
-      decoration: _dec('Search by Barcode', barcode, barcode.clear),
+      style: style,
+      scrollPadding: EdgeInsets.all(r.s(20)),
+      decoration: _dec(r, 'Search by Barcode', barcode.clear),
     );
     final enter = FilledButton(
       key: const Key('barcodeEnter'),
       style: FilledButton.styleFrom(
         backgroundColor: HomeColors.green,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-        padding: const EdgeInsets.symmetric(horizontal: 26, vertical: 20),
+        minimumSize: Size(r.minTap, r.tap(56)),
+        padding: EdgeInsets.symmetric(horizontal: r.s(26)),
       ),
       onPressed: () => onBarcode(barcode.text),
-      child: const Text('Enter', style: TextStyle(fontSize: 18)),
+      child: Text('Enter', style: TextStyle(fontSize: r.f(20))),
     );
+    final gap = r.s(18);
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
-      child: compact
-          ? Column(
-              children: [
-                searchField,
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(child: barcodeField),
-                    const SizedBox(width: 8),
-                    enter,
-                  ],
-                ),
-              ],
-            )
-          : Row(
-              children: [
-                Expanded(child: searchField),
-                const SizedBox(width: 18),
-                Expanded(child: barcodeField),
-                const SizedBox(width: 18),
-                enter,
-              ],
-            ),
+      padding: EdgeInsets.fromLTRB(r.s(12), r.s(4), r.s(12), r.s(8)),
+      child: LayoutBuilder(
+        builder: (context, c) => c.maxWidth < r.s(900)
+            ? Column(
+                children: [
+                  searchField,
+                  SizedBox(height: r.s(10)),
+                  Row(
+                    children: [
+                      Expanded(child: barcodeField),
+                      SizedBox(width: r.s(10)),
+                      enter,
+                    ],
+                  ),
+                ],
+              )
+            : Row(
+                children: [
+                  Expanded(child: searchField),
+                  SizedBox(width: gap),
+                  Expanded(child: barcodeField),
+                  SizedBox(width: gap),
+                  enter,
+                ],
+              ),
+      ),
     );
   }
 }
@@ -667,21 +733,24 @@ List<(String?, String)> _categoryTiles(SellState s) => [
   for (final c in s.categories) (c.id, c.name),
 ];
 
+/// Category column beside the products (1 or 2 columns of tiles).
 class _CategoryGrid extends StatelessWidget {
-  const _CategoryGrid({required this.state, required this.cubit});
+  const _CategoryGrid({required this.state, required this.cubit, required this.columns});
   final SellState state;
   final SellCubit cubit;
+  final int columns;
 
   @override
   Widget build(BuildContext context) {
+    final r = context.r;
     final tiles = _categoryTiles(state);
     return GridView.builder(
-      padding: const EdgeInsets.fromLTRB(12, 6, 8, 12),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        mainAxisExtent: 82,
-        crossAxisSpacing: 14,
-        mainAxisSpacing: 7,
+      padding: EdgeInsets.fromLTRB(r.s(12), r.s(6), r.s(8), r.s(12)),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: columns,
+        mainAxisExtent: r.tap(82),
+        crossAxisSpacing: r.s(14),
+        mainAxisSpacing: r.s(7),
       ),
       itemCount: tiles.length,
       itemBuilder: (_, i) => _CategoryTile(
@@ -689,11 +758,13 @@ class _CategoryGrid extends StatelessWidget {
         name: tiles[i].$2,
         selected: state.search.isEmpty && state.categoryId == tiles[i].$1,
         onTap: () => cubit.category(tiles[i].$1),
+        fontSize: r.f(22),
       ),
     );
   }
 }
 
+/// Horizontal category strip (narrow screens, or a narrow product pane).
 class _CategoryStrip extends StatelessWidget {
   const _CategoryStrip({required this.state, required this.cubit});
   final SellState state;
@@ -701,22 +772,24 @@ class _CategoryStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final r = context.r;
     final tiles = _categoryTiles(state);
+    final pad = r.s(6);
     return SizedBox(
-      height: 64,
+      height: r.tap(64) + 2 * pad,
       child: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        padding: EdgeInsets.symmetric(horizontal: r.s(12), vertical: pad),
         scrollDirection: Axis.horizontal,
         itemCount: tiles.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 10),
+        separatorBuilder: (_, _) => SizedBox(width: r.s(10)),
         itemBuilder: (_, i) => SizedBox(
-          width: 150,
+          width: r.s(190),
           child: _CategoryTile(
             id: tiles[i].$1,
             name: tiles[i].$2,
             selected: state.search.isEmpty && state.categoryId == tiles[i].$1,
             onTap: () => cubit.category(tiles[i].$1),
-            fontSize: 16,
+            fontSize: r.f(20),
           ),
         ),
       ),
@@ -730,7 +803,7 @@ class _CategoryTile extends StatelessWidget {
     required this.name,
     required this.selected,
     required this.onTap,
-    this.fontSize = 22,
+    required this.fontSize,
   });
   final String? id;
   final String name;
@@ -751,7 +824,7 @@ class _CategoryTile extends StatelessWidget {
       onTap: onTap,
       child: Center(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8),
+          padding: EdgeInsets.symmetric(horizontal: context.r.s(8)),
           child: Text(
             name,
             textAlign: TextAlign.center,
@@ -767,38 +840,28 @@ class _CategoryTile extends StatelessWidget {
 
 // ---- products -------------------------------------------------------------------------------------------
 
-class _ProductGrid extends StatelessWidget {
-  const _ProductGrid({required this.state, required this.cubit, required this.paged});
+/// Product grid with Prev / Next (beside the cart). A page is exactly the columns x rows that fit.
+class _PagedProductGrid extends StatelessWidget {
+  const _PagedProductGrid({required this.state, required this.cubit});
   final SellState state;
   final SellCubit cubit;
 
-  /// Prev / Next pages (wide screens); otherwise one scrolling grid.
-  final bool paged;
-
   @override
   Widget build(BuildContext context) {
+    final r = context.r;
     final products = state.visibleProducts;
+    final tileHeight = r.s(196);
+    final gap = r.s(12);
+    final pagerHeight = r.tap(55) + r.s(14);
+    final pad = EdgeInsets.fromLTRB(r.s(4), 0, r.s(12), r.s(8));
     return LayoutBuilder(
       builder: (context, c) {
-        final tileHeight = paged ? 196.0 : 128.0;
-        final gap = paged ? 12.0 : 10.0;
-        final cols = (c.maxWidth / (paged ? 200 : 170)).floor().clamp(2, 6);
-        if (!paged) {
-          return GridView.builder(
-            padding: const EdgeInsets.all(12),
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: cols,
-              mainAxisExtent: tileHeight,
-              crossAxisSpacing: gap,
-              mainAxisSpacing: gap,
-            ),
-            itemCount: products.length,
-            itemBuilder: (_, i) =>
-                _ProductTile(product: products[i], state: state, big: false, onTap: () => cubit.add(products[i])),
-          );
-        }
-        const pagerHeight = 78.0;
-        final rows = ((c.maxHeight - pagerHeight - 12) / (tileHeight + gap)).floor().clamp(1, 20);
+        final cols = r.columns(c.maxWidth - pad.horizontal, minTileWidth: 200, min: 2, max: 10);
+        final gridHeight = math.max(0.0, c.maxHeight - pagerHeight - pad.vertical);
+        final rows = ((gridHeight + gap) / (tileHeight + gap)).floor().clamp(1, 50);
+        // Tiles grow a little to fill the height instead of leaving a gap under the last row.
+        final fit = (gridHeight - gap * (rows - 1)) / rows;
+        final extent = fit >= tileHeight ? math.min(fit, tileHeight * 1.25) : tileHeight;
         final perPage = rows * cols;
         final pages = (products.length / perPage).ceil().clamp(1, 1 << 20);
         final page = state.page.clamp(0, pages - 1);
@@ -808,20 +871,24 @@ class _ProductGrid extends StatelessWidget {
             SizedBox(
               height: pagerHeight,
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(0, 6, 12, 8),
+                padding: EdgeInsets.fromLTRB(0, r.s(6), r.s(12), r.s(8)),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    _PagerButton(
-                      key: const Key('prevPage'),
-                      label: 'Prev',
-                      onTap: page > 0 ? () => cubit.setPage(page - 1) : null,
+                    Flexible(
+                      child: _PagerButton(
+                        key: const Key('prevPage'),
+                        label: 'Prev',
+                        onTap: page > 0 ? () => cubit.setPage(page - 1) : null,
+                      ),
                     ),
-                    const SizedBox(width: 24),
-                    _PagerButton(
-                      key: const Key('nextPage'),
-                      label: 'Next',
-                      onTap: page < pages - 1 ? () => cubit.setPage(page + 1) : null,
+                    SizedBox(width: r.s(24)),
+                    Flexible(
+                      child: _PagerButton(
+                        key: const Key('nextPage'),
+                        label: 'Next',
+                        onTap: page < pages - 1 ? () => cubit.setPage(page + 1) : null,
+                      ),
                     ),
                   ],
                 ),
@@ -829,13 +896,15 @@ class _ProductGrid extends StatelessWidget {
             ),
             Expanded(
               child: products.isEmpty
-                  ? const Center(child: Text('No products', style: TextStyle(fontSize: 18)))
+                  ? Center(
+                      child: Text('No products', style: TextStyle(fontSize: r.f(20))),
+                    )
                   : GridView.builder(
                       physics: const NeverScrollableScrollPhysics(),
-                      padding: const EdgeInsets.fromLTRB(4, 0, 12, 0),
+                      padding: pad,
                       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: cols,
-                        mainAxisExtent: tileHeight,
+                        mainAxisExtent: extent,
                         crossAxisSpacing: gap,
                         mainAxisSpacing: gap,
                       ),
@@ -851,37 +920,82 @@ class _ProductGrid extends StatelessWidget {
   }
 }
 
+/// Scrolling product grid (sliver) for narrow screens; columns follow the width.
+class _ProductSliverGrid extends StatelessWidget {
+  const _ProductSliverGrid({required this.state, required this.cubit});
+  final SellState state;
+  final SellCubit cubit;
+
+  @override
+  Widget build(BuildContext context) {
+    final r = context.r;
+    final products = state.visibleProducts;
+    if (products.isEmpty) {
+      return SliverFillRemaining(
+        hasScrollBody: false,
+        child: Center(
+          child: Text('No products', style: TextStyle(fontSize: r.f(20))),
+        ),
+      );
+    }
+    final gap = r.s(12);
+    return SliverPadding(
+      padding: EdgeInsets.all(r.s(12)),
+      sliver: SliverLayoutBuilder(
+        builder: (context, c) => SliverGrid.builder(
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: r.columns(c.crossAxisExtent, minTileWidth: 200, min: 2, max: 10),
+            mainAxisExtent: r.s(165),
+            crossAxisSpacing: gap,
+            mainAxisSpacing: gap,
+          ),
+          itemCount: products.length,
+          itemBuilder: (_, i) =>
+              _ProductTile(product: products[i], state: state, big: false, onTap: () => cubit.add(products[i])),
+        ),
+      ),
+    );
+  }
+}
+
 class _PagerButton extends StatelessWidget {
   const _PagerButton({super.key, required this.label, required this.onTap});
   final String label;
   final VoidCallback? onTap;
 
   @override
-  Widget build(BuildContext context) => SizedBox(
-    width: 176,
-    height: 55,
-    child: FilledButton(
-      style: FilledButton.styleFrom(
-        backgroundColor: HomeColors.navy,
-        disabledBackgroundColor: HomeColors.grey,
-        disabledForegroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+  Widget build(BuildContext context) {
+    final r = context.r;
+    return SizedBox(
+      width: r.s(176),
+      height: r.tap(55),
+      child: FilledButton(
+        style: FilledButton.styleFrom(
+          backgroundColor: HomeColors.navy,
+          disabledBackgroundColor: HomeColors.grey,
+          disabledForegroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          padding: EdgeInsets.symmetric(horizontal: r.s(8)),
+        ),
+        onPressed: onTap,
+        child: _fit(Text(label, style: TextStyle(fontSize: r.f(20)))),
       ),
-      onPressed: onTap,
-      child: Text(label, style: const TextStyle(fontSize: 18)),
-    ),
-  );
+    );
+  }
 }
 
 class _ProductTile extends StatelessWidget {
   const _ProductTile({required this.product, required this.state, required this.big, required this.onTap});
   final Product product;
   final SellState state;
+
+  /// Paged grid beside the cart (bigger tiles); otherwise the narrow-screen grid.
   final bool big;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    final r = context.r;
     final t = sl<TerminalContextHolder>().ctx;
     return Material(
       color: product.outOfStock ? Colors.grey.shade200 : Colors.white,
@@ -893,7 +1007,7 @@ class _ProductTile extends StatelessWidget {
         key: Key('product-${product.id}'),
         onTap: onTap,
         child: Padding(
-          padding: EdgeInsets.fromLTRB(big ? 16 : 12, big ? 12 : 8, 10, big ? 12 : 8),
+          padding: EdgeInsets.fromLTRB(r.s(big ? 16 : 14), r.s(big ? 12 : 10), r.s(10), r.s(big ? 12 : 10)),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -902,23 +1016,26 @@ class _ProductTile extends StatelessWidget {
                   product.name,
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: big ? 23 : 16, fontWeight: FontWeight.w500, height: 1.4),
+                  style: TextStyle(fontSize: r.f(big ? 23 : 21), fontWeight: FontWeight.w500, height: 1.4),
                 ),
               ),
               if (product.outOfStock)
                 Container(
-                  margin: const EdgeInsets.only(bottom: 4),
-                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                  margin: EdgeInsets.only(bottom: r.s(4)),
+                  padding: EdgeInsets.symmetric(horizontal: r.s(5), vertical: 1),
                   color: Colors.orange,
-                  child: const Text(
+                  child: Text(
                     'OUT OF STOCK',
-                    style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                    maxLines: 1,
+                    style: TextStyle(color: Colors.white, fontSize: r.f(13), fontWeight: FontWeight.bold),
                   ),
                 ),
               if (state.showPrices)
                 Text(
                   '${t.currency}  ${t.money(product.priceMinor)}',
-                  style: TextStyle(fontSize: big ? 22 : 15, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: r.f(big ? 22 : 20), fontWeight: FontWeight.bold, letterSpacing: 0.5),
                 ),
             ],
           ),
@@ -928,34 +1045,47 @@ class _ProductTile extends StatelessWidget {
   }
 }
 
+enum _ActionsLayout {
+  /// Narrow screens: one row of buttons, scrolling sideways when they do not fit.
+  strip,
+
+  /// Beside the cart on short screens: one row of five.
+  oneRow,
+
+  /// Beside the cart on tall screens: three big buttons over two.
+  twoRows,
+}
+
 class _ActionButtons extends StatelessWidget {
   const _ActionButtons({
-    required this.compact,
+    required this.layout,
     required this.onKitchenNote,
     required this.onDiscount,
     required this.onOpenFood,
     required this.onNewOrder,
     required this.onOrders,
   });
-  final bool compact;
+  final _ActionsLayout layout;
   final VoidCallback onKitchenNote, onDiscount, onOpenFood, onNewOrder, onOrders;
 
-  Widget _btn(String key, String label, VoidCallback onTap, {double height = 100}) => Padding(
+  Widget _btn(Responsive r, (String, String, VoidCallback) b, double height, double fontSize) => Padding(
     padding: const EdgeInsets.all(2),
     child: SizedBox(
       height: height,
       child: FilledButton(
-        key: Key(key),
+        key: Key(b.$1),
         style: FilledButton.styleFrom(
           backgroundColor: HomeColors.blue,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(2)),
-          padding: const EdgeInsets.symmetric(horizontal: 8),
+          padding: EdgeInsets.symmetric(horizontal: r.s(8)),
         ),
-        onPressed: onTap,
+        onPressed: b.$3,
         child: Text(
-          label,
+          b.$2,
           textAlign: TextAlign.center,
-          style: TextStyle(fontSize: compact ? 15 : 23, fontWeight: FontWeight.bold),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(fontSize: fontSize, fontWeight: FontWeight.bold),
         ),
       ),
     ),
@@ -963,45 +1093,48 @@ class _ActionButtons extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (compact) {
-      return SizedBox(
-        height: 56,
-        child: ListView(
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-          children: [
-            for (final (k, l, f) in [
-              ('kitchenNote', 'Kitchen Note', onKitchenNote),
-              ('discount', 'Discount', onDiscount),
-              ('openFood', 'Open Food', onOpenFood),
-              ('newOrder', 'New Order', onNewOrder),
-              ('orders', 'Orders', onOrders),
-            ])
-              SizedBox(width: 130, child: _btn(k, l, f, height: 50)),
-          ],
-        ),
-      );
+    final r = context.r;
+    final buttons = [
+      ('kitchenNote', 'Kitchen Note', onKitchenNote),
+      ('discount', 'Discount', onDiscount),
+      ('openFood', 'Open Food', onOpenFood),
+      ('newOrder', 'New Order', onNewOrder),
+      ('orders', 'Orders', onOrders),
+    ];
+    Widget row(Iterable<(String, String, VoidCallback)> bs, double height, double fontSize) =>
+        Row(children: [for (final b in bs) Expanded(child: _btn(r, b, height, fontSize))]);
+    switch (layout) {
+      case _ActionsLayout.strip:
+        final height = r.tap(64);
+        final width = r.s(170);
+        final fontSize = r.f(20);
+        return Padding(
+          padding: EdgeInsets.symmetric(horizontal: r.s(8), vertical: 2),
+          child: LayoutBuilder(
+            builder: (context, c) => c.maxWidth >= width * buttons.length
+                ? row(buttons, height, fontSize)
+                : SizedBox(
+                    height: height + 4,
+                    child: ListView(
+                      scrollDirection: Axis.horizontal,
+                      children: [for (final b in buttons) SizedBox(width: width, child: _btn(r, b, height, fontSize))],
+                    ),
+                  ),
+          ),
+        );
+      case _ActionsLayout.oneRow:
+        return Padding(
+          padding: EdgeInsets.fromLTRB(0, r.s(8), r.s(8), r.s(4)),
+          child: row(buttons, r.tap(80), r.f(22)),
+        );
+      case _ActionsLayout.twoRows:
+        final height = r.tap(100);
+        final fontSize = r.f(23);
+        return Padding(
+          padding: EdgeInsets.fromLTRB(0, r.s(8), r.s(8), r.s(4)),
+          child: Column(children: [row(buttons.take(3), height, fontSize), row(buttons.skip(3), height, fontSize)]),
+        );
     }
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(0, 8, 8, 4),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Expanded(child: _btn('kitchenNote', 'Kitchen Note', onKitchenNote)),
-              Expanded(child: _btn('discount', 'Discount', onDiscount)),
-              Expanded(child: _btn('openFood', 'Open Food', onOpenFood)),
-            ],
-          ),
-          Row(
-            children: [
-              Expanded(child: _btn('newOrder', 'New Order', onNewOrder)),
-              Expanded(child: _btn('orders', 'Orders', onOrders)),
-            ],
-          ),
-        ],
-      ),
-    );
   }
 }
 
@@ -1028,195 +1161,323 @@ class _CartPanel extends StatelessWidget {
   final void Function(String key, int delta) onQty;
   final VoidCallback onHold, onQuick, onPlace, onDeliveryCharge;
 
+  static const _channels = [
+    ('chDineIn', 'Dine In', Channel.dineIn),
+    ('chTakeaway', 'Take away', Channel.takeaway),
+    ('chDelivery', 'Home Delivery', Channel.homeDelivery),
+    ('chPartner', 'Delivery Partner', Channel.partner),
+  ];
+
+  /// Order-type buttons fit in one row when each gets this much width; otherwise 2 x 2.
+  static bool _channelsInOneRow(Responsive r, double width) => width / _channels.length >= r.s(140);
+
   @override
   Widget build(BuildContext context) {
+    final r = context.r;
+    return Container(
+      color: HomeColors.page,
+      padding: EdgeInsets.fromLTRB(r.s(8), r.s(10), r.s(8), r.s(8)),
+      child: LayoutBuilder(builder: (context, c) => _body(context, r, c)),
+    );
+  }
+
+  Widget _body(BuildContext context, Responsive r, BoxConstraints c) {
     final cart = state.cart;
     final priced = state.priced;
-    final empty = cart.isEmpty;
-    final ch = cart.channel;
-    final vatRate = cart.lines.isEmpty ? 0 : cart.lines.first.taxRateBp;
-    final inclusive = cart.lines.isEmpty || cart.lines.first.priceIncludesTax;
     final editing = cart.existingOrderId != null;
+    final details = editing ? null : _details(cart);
     final service = (priced?.charges ?? const <PricedCharge>[])
         .where((c) => c.code == 'SERVICE')
         .fold(0, (sum, c) => sum + c.net + c.tax);
-    return Container(
-      color: HomeColors.page,
-      padding: const EdgeInsets.fromLTRB(8, 10, 8, 8),
-      child: Column(
+
+    List<Widget> head(double width) => [
+      if (editing) _editHeader(r, cart) else _channelButtons(r, cart.channel, _channelsInOneRow(r, width)),
+      if (details != null) _detailsRow(r, details, cart.channel),
+      SizedBox(height: r.s(10)),
+      _itemsHeader(r, cart),
+    ];
+    Widget line(int i) => _LineRow(
+      line: cart.lines[i],
+      total: priced?.lines[i].lineTotal,
+      t: t,
+      selected: cart.lines[i].key == state.selectedKey,
+      onTap: () => onEditLine(cart.lines[i]),
+      onQty: (d) => onQty(cart.lines[i].key, d),
+    );
+    final totals = _totals(r, cart, priced, service);
+    final buttons = _buttons(r, editing, cart.isEmpty);
+
+    // Room the fixed parts need; the line list gets what is left (at least a few lines).
+    final textLine = _lineHeight(context, r.f(26)) + r.s(4);
+    final headHeight =
+        (editing
+            ? _lineHeight(context, r.f(21)) * 2
+            : (_channelsInOneRow(r, c.maxWidth) ? 1 : 2) * (r.tap(56) + r.s(4))) +
+        (details != null ? math.max(r.minTap, _lineHeight(context, r.f(18)) + r.s(6)) : 0) +
+        r.s(10) +
+        _lineHeight(context, r.f(19)) +
+        r.s(22);
+    // Sum rows, the delivery row (finger-sized Edit), two dividers, the dashed line, padding, buttons.
+    final totalsHeight =
+        (totals.length - 4) * textLine + math.max(r.minTap, textLine) + 38 + r.s(24) + r.tap(68) + r.s(6);
+    final tall = c.maxHeight >= headHeight + totalsHeight + r.s(240);
+    Widget box(List<Widget> children) => _totalsBox(r, children);
+
+    if (tall) {
+      // Order type and totals stay put; only the lines scroll.
+      return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (editing)
-            Padding(
-              key: const Key('editHeader'),
-              padding: const EdgeInsets.fromLTRB(4, 4, 4, 2),
-              child: Text(
-                'Bill No :  #${cart.existingOrderNo ?? ''}    Bill Type : ${_typeLabel(ch)}',
-                style: const TextStyle(fontSize: 21, color: Colors.black87),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            )
-          else
-            Row(
-              children: [
-                for (final (key, label, value) in [
-                  ('chDineIn', 'Dine In', Channel.dineIn),
-                  ('chTakeaway', 'Take away', Channel.takeaway),
-                  ('chDelivery', 'Home Delivery', Channel.homeDelivery),
-                  ('chPartner', 'Delivery Partner', Channel.partner),
-                ])
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 2),
-                      child: SizedBox(
-                        height: 56,
-                        child: FilledButton(
-                          key: Key(key),
-                          style: FilledButton.styleFrom(
-                            backgroundColor: ch == value ? HomeColors.navy : HomeColors.blue,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(4),
-                              side: const BorderSide(color: HomeColors.navy),
-                            ),
-                            padding: const EdgeInsets.symmetric(horizontal: 4),
-                          ),
-                          onPressed: () => onChannel(value),
-                          child: FittedBox(
-                            fit: BoxFit.scaleDown,
-                            child: Text(label, style: const TextStyle(fontSize: 22)),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          if (!editing && _details(cart) != null)
-            InkWell(
-              key: const Key('orderDetails'),
-              onTap: () => onChannel(ch),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(6, 10, 6, 0),
-                child: Row(
-                  children: [
-                    const Icon(Icons.info_outline, size: 18, color: HomeColors.navy),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        _details(cart)!,
-                        style: const TextStyle(color: HomeColors.navy, fontWeight: FontWeight.w600),
-                      ),
-                    ),
-                    const Icon(Icons.edit, size: 18, color: HomeColors.navy),
-                  ],
-                ),
-              ),
-            ),
-          const SizedBox(height: 10),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 11),
-            decoration: BoxDecoration(color: HomeColors.navy, borderRadius: BorderRadius.circular(4)),
-            child: Row(
-              children: [
-                Expanded(
-                  flex: 5,
-                  child: Text('items(${cart.itemCount})', style: const TextStyle(color: Colors.white, fontSize: 19)),
-                ),
-                const Expanded(
-                  flex: 2,
-                  child: Text(
-                    'Qty',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.white, fontSize: 19),
-                  ),
-                ),
-                Expanded(
-                  flex: 3,
-                  child: Text(
-                    'Price (${t.currency})',
-                    textAlign: TextAlign.end,
-                    style: const TextStyle(color: Colors.white, fontSize: 19),
-                  ),
-                ),
-              ],
-            ),
-          ),
+          ...head(c.maxWidth),
           Expanded(
-            child: ListView.builder(
-              itemCount: cart.lines.length,
-              itemBuilder: (_, i) => _LineRow(
-                line: cart.lines[i],
-                total: priced?.lines[i].lineTotal,
-                t: t,
-                selected: cart.lines[i].key == state.selectedKey,
-                onTap: () => onEditLine(cart.lines[i]),
-                onQty: (d) => onQty(cart.lines[i].key, d),
+            child: ListView.builder(itemCount: cart.lines.length, itemBuilder: (_, i) => line(i)),
+          ),
+          // Capped (scrolling inside) so the lines always keep some room, whatever the text size.
+          ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: math.max(r.tap(68) + r.s(60), c.maxHeight - headHeight - r.s(120))),
+            child: box([
+              Flexible(
+                child: SingleChildScrollView(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: totals),
+                ),
+              ),
+              SizedBox(height: r.s(6)),
+              buttons,
+            ]),
+          ),
+        ],
+      );
+    }
+    if (c.maxWidth >= r.s(760) && c.maxWidth > c.maxHeight * 1.3) {
+      // Short and wide (phone landscape): lines on the left, totals and buttons on the right.
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(
+            flex: 11,
+            child: LayoutBuilder(
+              builder: (context, lc) => Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  ...head(lc.maxWidth),
+                  Expanded(
+                    child: ListView.builder(itemCount: cart.lines.length, itemBuilder: (_, i) => line(i)),
+                  ),
+                ],
               ),
             ),
           ),
-          Container(
-            padding: const EdgeInsets.fromLTRB(18, 14, 18, 10),
-            decoration: BoxDecoration(
-              color: HomeColors.page,
-              border: Border.all(color: Colors.grey.shade200),
-              borderRadius: BorderRadius.circular(6),
-            ),
+          SizedBox(width: r.s(12)),
+          Expanded(
+            flex: 9,
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _sum('Subtotal', t.money(priced?.subtotalMinor ?? 0)),
-                _delivery(cart.deliveryChargeMinor),
-                Divider(color: Colors.grey.shade400, height: 20),
-                if ((priced?.discountMinor ?? 0) > 0)
-                  _sum(
-                    'Discount (${(cart.discountBp / 100).toStringAsFixed(cart.discountBp % 100 == 0 ? 0 : 2)}%)',
-                    '-${t.money(priced!.discountMinor)}',
-                  ),
-                if (service > 0) _sum('Service charge', t.money(service)),
-                _sum('Subtotal before VAT', t.money((priced?.totalMinor ?? 0) - (priced?.taxMinor ?? 0))),
-                _sum(
-                  'VAT ${inclusive ? 'inclusive' : 'exclusive'} (${(vatRate / 100).toStringAsFixed(vatRate % 100 == 0 ? 0 : 2)}%)',
-                  t.money(priced?.taxMinor ?? 0),
-                ),
-                const _Dashed(),
-                _sum('Net Total', '${t.currency} ${t.money(priced?.totalMinor ?? 0)}', bold: true),
-                Divider(color: Colors.grey.shade400, height: 16),
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    Expanded(
-                      flex: 2,
-                      child: _bottomButton('hold', 'Hold', HomeColors.green, empty || state.busy ? null : onHold),
-                    ),
-                    if (!captainDevice) ...[
-                      const SizedBox(width: 16),
-                      Expanded(
-                        flex: 4,
-                        child: _bottomButton(
-                          'pay',
-                          editing ? 'Quick Update Order' : 'Quick Order(No KOT)',
-                          editing ? HomeColors.navy : HomeColors.quick,
-                          empty || state.busy ? null : onQuick,
-                        ),
-                      ),
-                    ],
-                    const SizedBox(width: 16),
-                    Expanded(
-                      flex: 4,
-                      child: _bottomButton(
-                        'placeOrder',
-                        editing ? 'Update Order' : 'Place Order',
-                        HomeColors.place,
-                        empty || state.busy ? null : onPlace,
-                      ),
-                    ),
-                  ],
-                ),
+                Expanded(child: SingleChildScrollView(child: box(totals))),
+                SizedBox(height: r.s(6)),
+                buttons,
               ],
             ),
           ),
         ],
+      );
+    }
+    // Short: lines and totals scroll together (the order type too when even that is too tall);
+    // the Hold / Quick / Place buttons stay on screen.
+    final pinHead = c.maxHeight >= headHeight + r.tap(68) + r.s(200);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (pinHead) ...head(c.maxWidth),
+        Expanded(
+          child: CustomScrollView(
+            slivers: [
+              if (!pinHead) SliverList.list(children: head(c.maxWidth)),
+              SliverList.builder(itemCount: cart.lines.length, itemBuilder: (_, i) => line(i)),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.only(top: r.s(8)),
+                  child: box(totals),
+                ),
+              ),
+            ],
+          ),
+        ),
+        SizedBox(height: r.s(6)),
+        buttons,
+      ],
+    );
+  }
+
+  Widget _editHeader(Responsive r, Cart cart) => Padding(
+    key: const Key('editHeader'),
+    padding: EdgeInsets.fromLTRB(r.s(4), r.s(4), r.s(4), r.s(2)),
+    child: Text(
+      'Bill No :  #${cart.existingOrderNo ?? ''}    Bill Type : ${_typeLabel(cart.channel)}',
+      style: TextStyle(fontSize: r.f(21), color: Colors.black87),
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+    ),
+  );
+
+  Widget _channelButtons(Responsive r, String ch, bool oneRow) {
+    Widget button((String, String, String) c) => Expanded(
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: r.s(2)),
+        child: SizedBox(
+          height: r.tap(56),
+          child: FilledButton(
+            key: Key(c.$1),
+            style: FilledButton.styleFrom(
+              backgroundColor: ch == c.$3 ? HomeColors.navy : HomeColors.blue,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(4),
+                side: const BorderSide(color: HomeColors.navy),
+              ),
+              padding: EdgeInsets.symmetric(horizontal: r.s(4)),
+            ),
+            onPressed: () => onChannel(c.$3),
+            child: _fit(Text(c.$2, style: TextStyle(fontSize: r.f(22)))),
+          ),
+        ),
       ),
+    );
+    if (oneRow) return Row(children: [for (final c in _channels) button(c)]);
+    return Column(
+      children: [
+        Row(children: [for (final c in _channels.take(2)) button(c)]),
+        SizedBox(height: r.s(4)),
+        Row(children: [for (final c in _channels.skip(2)) button(c)]),
+      ],
+    );
+  }
+
+  Widget _detailsRow(Responsive r, String details, String ch) => InkWell(
+    key: const Key('orderDetails'),
+    onTap: () => onChannel(ch),
+    child: ConstrainedBox(
+      constraints: BoxConstraints(minHeight: r.minTap),
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(r.s(6), r.s(6), r.s(6), 0),
+        child: Row(
+          children: [
+            Icon(Icons.info_outline, size: r.f(22), color: HomeColors.navy),
+            SizedBox(width: r.s(6)),
+            Expanded(
+              child: Text(
+                details,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: HomeColors.navy, fontWeight: FontWeight.w600, fontSize: r.f(18)),
+              ),
+            ),
+            Icon(Icons.edit, size: r.f(22), color: HomeColors.navy),
+          ],
+        ),
+      ),
+    ),
+  );
+
+  Widget _itemsHeader(Responsive r, Cart cart) {
+    final style = TextStyle(color: Colors.white, fontSize: r.f(19));
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: r.s(18), vertical: r.s(11)),
+      decoration: BoxDecoration(color: HomeColors.navy, borderRadius: BorderRadius.circular(4)),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 5,
+            child: Text('items(${cart.itemCount})', maxLines: 1, overflow: TextOverflow.ellipsis, style: style),
+          ),
+          Expanded(
+            flex: 2,
+            child: Text('Qty', textAlign: TextAlign.center, maxLines: 1, style: style),
+          ),
+          Expanded(
+            flex: 3,
+            child: Text(
+              'Price (${t.currency})',
+              textAlign: TextAlign.end,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: style,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Subtotal, delivery charge, discount, service, VAT, Net Total (first and last are dividers).
+  List<Widget> _totals(Responsive r, Cart cart, PricedOrder? priced, int service) {
+    final vatRate = cart.lines.isEmpty ? 0 : cart.lines.first.taxRateBp;
+    final inclusive = cart.lines.isEmpty || cart.lines.first.priceIncludesTax;
+    return [
+      _sum(r, 'Subtotal', t.money(priced?.subtotalMinor ?? 0)),
+      _delivery(r, cart.deliveryChargeMinor),
+      Divider(color: Colors.grey.shade400, height: 20),
+      if ((priced?.discountMinor ?? 0) > 0)
+        _sum(
+          r,
+          'Discount (${(cart.discountBp / 100).toStringAsFixed(cart.discountBp % 100 == 0 ? 0 : 2)}%)',
+          '-${t.money(priced!.discountMinor)}',
+        ),
+      if (service > 0) _sum(r, 'Service charge', t.money(service)),
+      _sum(r, 'Subtotal before VAT', t.money((priced?.totalMinor ?? 0) - (priced?.taxMinor ?? 0))),
+      _sum(
+        r,
+        'VAT ${inclusive ? 'inclusive' : 'exclusive'} (${(vatRate / 100).toStringAsFixed(vatRate % 100 == 0 ? 0 : 2)}%)',
+        t.money(priced?.taxMinor ?? 0),
+      ),
+      const _Dashed(),
+      _sum(r, 'Net Total', '${t.currency} ${t.money(priced?.totalMinor ?? 0)}', bold: true),
+      Divider(color: Colors.grey.shade400, height: 16),
+    ];
+  }
+
+  Widget _totalsBox(Responsive r, List<Widget> children) => Container(
+    padding: EdgeInsets.fromLTRB(r.s(18), r.s(14), r.s(18), r.s(10)),
+    decoration: BoxDecoration(
+      color: HomeColors.page,
+      border: Border.all(color: Colors.grey.shade200),
+      borderRadius: BorderRadius.circular(6),
+    ),
+    child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: children),
+  );
+
+  Widget _buttons(Responsive r, bool editing, bool empty) {
+    final gap = SizedBox(width: r.s(16));
+    return Row(
+      children: [
+        Expanded(
+          flex: 2,
+          child: _bottomButton(r, 'hold', 'Hold', HomeColors.green, empty || state.busy ? null : onHold),
+        ),
+        if (!captainDevice) ...[
+          gap,
+          Expanded(
+            flex: 4,
+            child: _bottomButton(
+              r,
+              'pay',
+              editing ? 'Quick Update Order' : 'Quick Order(No KOT)',
+              editing ? HomeColors.navy : HomeColors.quick,
+              empty || state.busy ? null : onQuick,
+            ),
+          ),
+        ],
+        gap,
+        Expanded(
+          flex: 4,
+          child: _bottomButton(
+            r,
+            'placeOrder',
+            editing ? 'Update Order' : 'Place Order',
+            HomeColors.place,
+            empty || state.busy ? null : onPlace,
+          ),
+        ),
+      ],
     );
   }
 
@@ -1246,66 +1507,72 @@ class _CartPanel extends StatelessWidget {
   };
 
   /// "Delivery charge  Edit✎        0.00" in red.
-  Widget _delivery(int minor) {
-    const red = TextStyle(fontSize: 26, color: Color(0xFFE5574B));
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(
-        children: [
-          Expanded(
-            child: Row(
-              children: [
-                const Flexible(
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Text('Delivery charge', style: red),
+  Widget _delivery(Responsive r, int minor) {
+    final red = TextStyle(fontSize: r.f(26), color: const Color(0xFFE5574B));
+    return Row(
+      children: [
+        Expanded(
+          child: Row(
+            children: [
+              Flexible(
+                child: _fit(Text('Delivery charge', style: red), alignment: Alignment.centerLeft),
+              ),
+              SizedBox(width: r.s(22)),
+              InkWell(
+                key: const Key('deliveryChargeEdit'),
+                onTap: onDeliveryCharge,
+                borderRadius: BorderRadius.circular(5),
+                // The chip stays small; the tap target is finger-sized.
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: r.minTap, minWidth: r.minTap),
+                  child: Center(
+                    widthFactor: 1,
+                    child: Container(
+                      padding: EdgeInsets.symmetric(horizontal: r.s(6), vertical: r.s(2)),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        border: Border.all(color: Colors.grey.shade300),
+                        borderRadius: BorderRadius.circular(5),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'Edit',
+                            style: TextStyle(fontSize: r.f(19), color: const Color(0xFF4CAF50)),
+                          ),
+                          Icon(Icons.edit, size: r.f(20), color: Colors.black87),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
-                const SizedBox(width: 22),
-                InkWell(
-                  key: const Key('deliveryChargeEdit'),
-                  onTap: onDeliveryCharge,
-                  borderRadius: BorderRadius.circular(5),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      border: Border.all(color: Colors.grey.shade300),
-                      borderRadius: BorderRadius.circular(5),
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text('Edit', style: TextStyle(fontSize: 19, color: Color(0xFF4CAF50))),
-                        Icon(Icons.edit, size: 18, color: Colors.black87),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-          Text(t.money(minor), style: red),
-        ],
-      ),
+        ),
+        Text(t.money(minor), style: red),
+      ],
     );
   }
 
-  Widget _sum(String a, String b, {bool bold = false}) {
-    final style = TextStyle(fontSize: bold ? 28 : 26, fontWeight: bold ? FontWeight.bold : FontWeight.w400);
+  Widget _sum(Responsive r, String a, String b, {bool bold = false}) {
+    final style = TextStyle(fontSize: r.f(bold ? 28 : 26), fontWeight: bold ? FontWeight.bold : FontWeight.w400);
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
+      padding: EdgeInsets.symmetric(vertical: r.s(2)),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(child: Text(a, style: style)),
+          SizedBox(width: r.s(8)),
           Text(b, style: style),
         ],
       ),
     );
   }
 
-  Widget _bottomButton(String key, String label, Color color, VoidCallback? onTap) => SizedBox(
-    height: 68,
+  Widget _bottomButton(Responsive r, String key, String label, Color color, VoidCallback? onTap) => SizedBox(
+    height: r.tap(68),
     child: FilledButton(
       key: Key(key),
       style: FilledButton.styleFrom(
@@ -1313,14 +1580,22 @@ class _CartPanel extends StatelessWidget {
         disabledBackgroundColor: color.withValues(alpha: 0.45),
         disabledForegroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        padding: const EdgeInsets.symmetric(horizontal: 6),
+        padding: EdgeInsets.symmetric(horizontal: r.s(6)),
       ),
       onPressed: onTap,
-      child: FittedBox(
-        fit: BoxFit.scaleDown,
-        child: Text(
-          label,
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+      // Long labels ("Quick Order(No KOT)") wrap to two lines in a narrow cart before shrinking.
+      child: LayoutBuilder(
+        builder: (_, c) => FittedBox(
+          fit: BoxFit.scaleDown,
+          child: SizedBox(
+            width: c.hasBoundedWidth ? c.maxWidth : null,
+            child: Text(
+              label,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              style: TextStyle(fontSize: r.f(20), height: 1.1, fontWeight: FontWeight.bold, color: Colors.white),
+            ),
+          ),
         ),
       ),
     ),
@@ -1360,78 +1635,119 @@ class _LineRow extends StatelessWidget {
 
   String get _qty => line.qtyMilli % 1000 == 0 ? '${line.qtyMilli ~/ 1000}' : (line.qtyMilli / 1000).toStringAsFixed(3);
 
+  /// White card: name and unit price, qty, line total, stacked + / - on the right; blue when
+  /// selected. In a narrow cart the name gets the full width and unit price, qty and total sit
+  /// under it.
   @override
-  Widget build(BuildContext context) => _card();
-
-  /// White card: name and unit price, qty, line total, stacked + / - on the right; blue when selected.
-  Widget _card() {
+  Widget build(BuildContext context) {
+    final r = context.r;
     final fg = selected ? Colors.white : Colors.black87;
+    final name = Text(
+      line.name,
+      maxLines: 3,
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(fontSize: r.f(21), color: fg),
+    );
+    final unit = Text(
+      t.money(line.unitPriceMinor),
+      maxLines: 1,
+      style: TextStyle(fontSize: r.f(19), color: fg),
+    );
+    final note = line.note == null
+        ? null
+        : Text(
+            '* ${line.note}',
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: r.f(16), color: selected ? Colors.white : Colors.deepOrange),
+          );
+    final qty = _fit(
+      Text(
+        _qty,
+        maxLines: 1,
+        style: TextStyle(fontSize: r.f(23), color: fg),
+      ),
+    );
+    final amount = _fit(
+      Text(
+        t.money(total ?? line.unitPriceMinor * line.qtyMilli ~/ 1000),
+        maxLines: 1,
+        style: TextStyle(fontSize: r.f(23), color: fg),
+      ),
+      alignment: Alignment.centerRight,
+    );
+    final stack = Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _stackButton(r, Icons.add, () => onQty(1), 'plus-${line.key}'),
+        SizedBox(height: r.s(8)),
+        _stackButton(r, Icons.remove, () => onQty(-1), 'minus-${line.key}'),
+      ],
+    );
     return InkWell(
       key: Key('line-${line.key}'),
       onTap: onTap,
       child: Container(
-        margin: const EdgeInsets.only(top: 8),
-        padding: const EdgeInsets.fromLTRB(18, 8, 14, 8),
+        margin: EdgeInsets.only(top: r.s(8)),
+        padding: EdgeInsets.fromLTRB(r.s(18), r.s(8), r.s(14), r.s(8)),
         decoration: BoxDecoration(
           color: selected ? HomeColors.blue : Colors.white,
           borderRadius: BorderRadius.circular(8),
         ),
-        child: Row(
-          children: [
-            Expanded(
-              flex: 5,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(line.name, style: TextStyle(fontSize: 21, color: fg)),
-                  Text(t.money(line.unitPriceMinor), style: TextStyle(fontSize: 19, color: fg)),
-                  if (line.note != null)
-                    Text(
-                      '* ${line.note}',
-                      style: TextStyle(fontSize: 13, color: selected ? Colors.white : Colors.deepOrange),
+        child: LayoutBuilder(
+          builder: (context, c) => c.maxWidth >= r.s(480)
+              ? Row(
+                  children: [
+                    Expanded(
+                      flex: 5,
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [name, unit, ?note]),
                     ),
-                ],
-              ),
-            ),
-            Expanded(
-              flex: 2,
-              child: Text(
-                _qty,
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 23, color: fg),
-              ),
-            ),
-            Expanded(
-              flex: 2,
-              child: Text(
-                t.money(total ?? line.unitPriceMinor * line.qtyMilli ~/ 1000),
-                textAlign: TextAlign.end,
-                style: TextStyle(fontSize: 23, color: fg),
-              ),
-            ),
-            const SizedBox(width: 6),
-            Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _stackButton(Icons.add, () => onQty(1), 'plus-${line.key}'),
-                const SizedBox(height: 8),
-                _stackButton(Icons.remove, () => onQty(-1), 'minus-${line.key}'),
-              ],
-            ),
-          ],
+                    Expanded(flex: 2, child: qty),
+                    Expanded(flex: 2, child: amount),
+                    SizedBox(width: r.s(6)),
+                    stack,
+                  ],
+                )
+              : Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          name,
+                          ?note,
+                          SizedBox(height: r.s(4)),
+                          Row(
+                            children: [
+                              Expanded(flex: 3, child: _fit(unit, alignment: Alignment.centerLeft)),
+                              Expanded(flex: 2, child: qty),
+                              Expanded(flex: 3, child: amount),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    SizedBox(width: r.s(10)),
+                    stack,
+                  ],
+                ),
         ),
       ),
     );
   }
 
-  Widget _stackButton(IconData icon, VoidCallback onTap, String key) => Material(
+  Widget _stackButton(Responsive r, IconData icon, VoidCallback onTap, String key) => Material(
     color: selected ? Colors.white : const Color(0xFFE8E6EC),
     borderRadius: BorderRadius.circular(10),
     child: InkWell(
       key: Key(key),
       onTap: onTap,
       borderRadius: BorderRadius.circular(10),
-      child: SizedBox(width: 84, height: 50, child: Icon(icon, size: 26, color: Colors.black)),
+      child: SizedBox(
+        width: math.max(r.s(84), r.minTap),
+        height: r.tap(50),
+        child: Icon(icon, size: r.f(28), color: Colors.black),
+      ),
     ),
   );
 }
@@ -1443,32 +1759,43 @@ class _CartBar extends StatelessWidget {
   final VoidCallback onOpen;
 
   @override
-  Widget build(BuildContext context) => Material(
-    color: HomeColors.navy,
-    child: InkWell(
-      key: const Key('openCart'),
-      onTap: onOpen,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-        child: Row(
-          children: [
-            const Icon(Icons.shopping_cart_outlined, color: Colors.white),
-            const SizedBox(width: 10),
-            Text(
-              '${state.cart.itemCount} items · ${state.cart.channel.replaceAll('_', ' ')}',
-              style: const TextStyle(color: Colors.white, fontSize: 16),
+  Widget build(BuildContext context) {
+    final r = context.r;
+    return Material(
+      color: HomeColors.navy,
+      child: InkWell(
+        key: const Key('openCart'),
+        onTap: onOpen,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: r.tap(64)),
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: r.s(18), vertical: r.s(8)),
+            child: Row(
+              children: [
+                Icon(Icons.shopping_cart_outlined, color: Colors.white, size: r.f(28)),
+                SizedBox(width: r.s(10)),
+                Expanded(
+                  child: Text(
+                    '${state.cart.itemCount} items · ${state.cart.channel.replaceAll('_', ' ')}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: Colors.white, fontSize: r.f(20)),
+                  ),
+                ),
+                SizedBox(width: r.s(8)),
+                Text(
+                  '${t.currency} ${t.money(state.priced?.totalMinor ?? 0)}',
+                  maxLines: 1,
+                  style: TextStyle(color: Colors.white, fontSize: r.f(23), fontWeight: FontWeight.bold),
+                ),
+                Icon(Icons.keyboard_arrow_up, color: Colors.white, size: r.f(30)),
+              ],
             ),
-            const Spacer(),
-            Text(
-              '${t.currency} ${t.money(state.priced?.totalMinor ?? 0)}',
-              style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const Icon(Icons.keyboard_arrow_up, color: Colors.white),
-          ],
+          ),
         ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 // ---- drawer and shift -----------------------------------------------------------------------------------
@@ -1488,8 +1815,41 @@ class _HomeDrawerState extends State<_HomeDrawer> {
 
   static const _ink = Color(0xFF22406A);
 
+  /// One menu row: finger-sized, icon and label.
+  Widget _item(
+    Responsive r,
+    String key,
+    IconData icon,
+    Widget label,
+    VoidCallback? onTap, {
+    Color? color,
+    Widget? trailing,
+    double vertical = 17,
+  }) => Material(
+    color: color ?? Colors.transparent,
+    child: InkWell(
+      key: Key('menu-$key'),
+      onTap: onTap,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(minHeight: r.minTap),
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: r.s(26), vertical: r.s(vertical)),
+          child: Row(
+            children: [
+              Icon(icon, color: _ink, size: r.f(32)),
+              SizedBox(width: r.s(26)),
+              Expanded(child: label),
+              ?trailing,
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+
   @override
   Widget build(BuildContext context) {
+    final r = context.r;
     final t = sl<TerminalContextHolder>().ctx;
     final shifts = sl<ShiftService>();
     final user = sl<StaffSession>().user;
@@ -1511,51 +1871,37 @@ class _HomeDrawerState extends State<_HomeDrawer> {
 
     Widget top(String key, IconData icon, String label, {VoidCallback? onTap, bool group = false}) {
       final open = _open.contains(key);
-      return Material(
-        color: group && open ? const Color(0xFFE9E7EE) : Colors.transparent,
-        child: InkWell(
-          key: Key('menu-$key'),
-          onTap: group ? () => setState(() => open ? _open.remove(key) : _open.add(key)) : onTap,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(22, 17, 22, 17),
-            child: Row(
-              children: [
-                Icon(icon, color: _ink, size: 28),
-                const SizedBox(width: 22),
-                Expanded(
-                  child: Text(
-                    label.toUpperCase(),
-                    style: const TextStyle(fontSize: 18, letterSpacing: 1.2, color: _ink, fontWeight: FontWeight.w500),
-                  ),
-                ),
-                if (group) Icon(open ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down, color: _ink, size: 28),
-              ],
-            ),
-          ),
+      return _item(
+        r,
+        key,
+        icon,
+        Text(
+          label.toUpperCase(),
+          style: TextStyle(fontSize: r.f(22), letterSpacing: 1.2, color: _ink, fontWeight: FontWeight.w500),
         ),
+        group ? () => setState(() => open ? _open.remove(key) : _open.add(key)) : onTap,
+        color: group && open ? const Color(0xFFE9E7EE) : null,
+        trailing: group
+            ? Icon(open ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down, color: _ink, size: r.f(32))
+            : null,
       );
     }
 
-    Widget sub(String key, IconData icon, String label, VoidCallback onTap) => InkWell(
-      key: Key('menu-$key'),
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(22, 15, 22, 15),
-        child: Row(
-          children: [
-            Icon(icon, color: _ink, size: 26),
-            const SizedBox(width: 22),
-            Expanded(
-              child: Text(label, style: const TextStyle(fontSize: 17, letterSpacing: 0.6, color: Colors.black87)),
-            ),
-          ],
-        ),
+    Widget sub(String key, IconData icon, String label, VoidCallback onTap) => _item(
+      r,
+      key,
+      icon,
+      Text(
+        label,
+        style: TextStyle(fontSize: r.f(21), letterSpacing: 0.6, color: Colors.black87),
       ),
+      onTap,
+      vertical: 15,
     );
 
     final cashier = !t.isCaptain;
     return Drawer(
-      width: 300,
+      width: math.min(r.width * 0.86, math.max(304.0, r.s(400))),
       backgroundColor: const Color(0xFFF4F2F7),
       child: SafeArea(
         child: Column(
@@ -1566,18 +1912,18 @@ class _HomeDrawerState extends State<_HomeDrawer> {
                 children: [
                   Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.fromLTRB(22, 18, 22, 14),
+                    padding: EdgeInsets.fromLTRB(r.s(26), r.s(22), r.s(26), r.s(18)),
                     color: HomeColors.navy,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           t.storeName,
-                          style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+                          style: TextStyle(color: Colors.white, fontSize: r.f(25), fontWeight: FontWeight.bold),
                         ),
                         Text(
                           '${user.name} · ${t.deviceCode} · ${t.deviceType}',
-                          style: const TextStyle(color: Colors.white70),
+                          style: TextStyle(color: Colors.white70, fontSize: r.f(18)),
                         ),
                       ],
                     ),
@@ -1697,10 +2043,10 @@ class _HomeDrawerState extends State<_HomeDrawer> {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 18),
+              padding: EdgeInsets.symmetric(vertical: r.s(18)),
               child: Text(
                 'Terminal ${t.deviceCode}',
-                style: const TextStyle(fontSize: 13, color: Colors.black54, letterSpacing: 1),
+                style: TextStyle(fontSize: r.f(16), color: Colors.black54, letterSpacing: 1),
               ),
             ),
           ],
@@ -1716,22 +2062,30 @@ class _OpenShift extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final r = context.r;
     final t = sl<TerminalContextHolder>().ctx;
     return Center(
-      child: FilledButton.icon(
-        key: const Key('openShift'),
-        icon: const Icon(Icons.play_arrow),
-        label: const Text('Open shift'),
-        onPressed: () async {
-          final float = await askAmount(context, title: 'Opening cash float', decimals: t.currencyDecimals);
-          if (float == null) return;
-          try {
-            await sl<ShiftService>().startShift(userId: sl<StaffSession>().user.id, openingFloatMinor: float);
-            onOpened();
-          } on StateError catch (e) {
-            if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
-          }
-        },
+      child: Padding(
+        padding: EdgeInsets.all(r.gutter),
+        child: FilledButton.icon(
+          key: const Key('openShift'),
+          style: FilledButton.styleFrom(
+            minimumSize: Size(r.s(240), r.tap(64)),
+            padding: EdgeInsets.symmetric(horizontal: r.s(28)),
+          ),
+          icon: Icon(Icons.play_arrow, size: r.f(30)),
+          label: Text('Open shift', style: TextStyle(fontSize: r.f(24))),
+          onPressed: () async {
+            final float = await askAmount(context, title: 'Opening cash float', decimals: t.currencyDecimals);
+            if (float == null) return;
+            try {
+              await sl<ShiftService>().startShift(userId: sl<StaffSession>().user.id, openingFloatMinor: float);
+              onOpened();
+            } on StateError catch (e) {
+              if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+            }
+          },
+        ),
       ),
     );
   }

@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../core/di/injection.dart';
+import '../core/responsive/responsive.dart';
 import '../features/device_setup/presentation/bloc/device_setup_bloc.dart';
 import '../features/terminal/terminal_cubit.dart';
 import 'router.dart';
@@ -37,6 +38,7 @@ class _AppState extends State<App> {
         debugShowCheckedModeBanner: false,
         theme: AppTheme.light(),
         routerConfig: _router,
+        builder: clampTextScale,
       ),
     );
   }

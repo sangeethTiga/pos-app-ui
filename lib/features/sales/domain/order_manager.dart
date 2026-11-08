@@ -95,6 +95,24 @@ class OrderManager {
   final StaffRepository _staff;
   final void Function()? _onCommit;
 
+  /// Entities of an order: a change to any of them (from another terminal, through sync) means the
+  /// order screens should reload.
+  static const orderEntities = {
+    'orders',
+    'order_line',
+    'order_discount',
+    'order_charge',
+    'order_event',
+    'kot',
+    'payment',
+    'refund',
+    'customer',
+    'dining_table',
+  };
+
+  /// Fires when orders changed on another terminal (applied by sync).
+  Stream<void> get remoteChanges => _store.incoming.where((e) => e.any(orderEntities.contains)).map((_) {});
+
   /// Set by Edit Order: the home screen opens with this running order (see [openOnHome]).
   Cart? homeIntent;
 

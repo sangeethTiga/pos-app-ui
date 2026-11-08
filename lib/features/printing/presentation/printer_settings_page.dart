@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
 import '../../../app/theme.dart';
 import '../../../core/di/injection.dart';
+import '../../../core/responsive/responsive.dart';
 import '../../sales/domain/cart.dart';
 import '../data/print_center.dart';
 import '../data/printer_service.dart';
@@ -36,8 +38,13 @@ class _PrinterSettingsPageState extends State<PrinterSettingsPage> {
   PrinterDevice? _selected;
   StreamSubscription<List<PrinterDevice>>? _scan;
 
-  static const _label = TextStyle(fontSize: 22, color: Colors.black87);
-  static const _hint = TextStyle(fontSize: 13, color: Colors.black87);
+  Responsive get _r => context.r;
+
+  /// Font size token for [designPx] (drawn on the 1920-wide screen), never below [min].
+  double _font(double designPx, {double min = 14}) => math.max(_r.f(designPx), min);
+
+  TextStyle get _label => TextStyle(fontSize: _font(22), color: Colors.black87);
+  TextStyle get _hint => TextStyle(fontSize: _font(13, min: 12), color: Colors.black87);
 
   @override
   void initState() {
@@ -124,53 +131,81 @@ class _PrinterSettingsPageState extends State<PrinterSettingsPage> {
 
   Widget _target(String key, String label, String button, PrinterDevice? current, ValueChanged<PrinterDevice?> set) {
     final c = _candidate;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 22),
-      child: Row(
+    final r = _r;
+    final text = Text.rich(
+      TextSpan(
         children: [
-          Expanded(
-            child: Text.rich(
-              TextSpan(
-                children: [
-                  TextSpan(text: '$label : ', style: _label),
-                  if (current != null)
-                    TextSpan(
-                      text: current.name,
-                      style: const TextStyle(fontSize: 17, color: PosColors.navy, fontWeight: FontWeight.w600),
-                    ),
-                ],
-              ),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
+          TextSpan(text: '$label : ', style: _label),
           if (current != null)
-            IconButton(
-              key: Key('clear-$key'),
-              tooltip: 'Remove',
-              onPressed: () => set(null),
-              icon: const Icon(Icons.close, size: 20),
+            TextSpan(
+              text: current.name,
+              style: TextStyle(fontSize: _font(17), color: PosColors.navy, fontWeight: FontWeight.w600),
             ),
-          FilledButton(
-            key: Key('setAs-$key'),
-            style: FilledButton.styleFrom(
-              backgroundColor: PosColors.navy,
-              disabledBackgroundColor: const Color(0xFFD3D2DF),
-              disabledForegroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-            ),
-            onPressed: c == null ? null : () => set(c),
-            child: Text(button, style: const TextStyle(fontSize: 15)),
-          ),
         ],
       ),
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+    );
+    final setAs = FilledButton(
+      key: Key('setAs-$key'),
+      style: FilledButton.styleFrom(
+        backgroundColor: PosColors.navy,
+        disabledBackgroundColor: const Color(0xFFD3D2DF),
+        disabledForegroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+        minimumSize: Size(0, r.tap(50)),
+        padding: EdgeInsets.symmetric(horizontal: r.s(14)),
+      ),
+      onPressed: c == null ? null : () => set(c),
+      child: Text(
+        button,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(fontSize: _font(15)),
+      ),
+    );
+    final buttons = [
+      if (current != null)
+        IconButton(
+          key: Key('clear-$key'),
+          tooltip: 'Remove',
+          constraints: BoxConstraints.tight(Size.square(r.minTap)),
+          onPressed: () => set(null),
+          icon: Icon(Icons.close, size: _font(20, min: 20)),
+        ),
+      // Long station names shrink the button (ellipsis) instead of pushing the row off screen.
+      if (r.isCompact)
+        Flexible(child: setAs)
+      else
+        ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: r.s(340)),
+          child: setAs,
+        ),
+    ];
+    return Padding(
+      padding: EdgeInsets.only(bottom: r.s(22)),
+      // Phones: the printer name gets the full width, the buttons go under it.
+      child: r.isCompact
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                text,
+                const SizedBox(height: 6),
+                Row(mainAxisAlignment: MainAxisAlignment.end, children: buttons),
+              ],
+            )
+          : Row(
+              children: [
+                Expanded(child: text),
+                ...buttons,
+              ],
+            ),
     );
   }
 
   Widget _dropdown<T>(String key, String label, T value, Map<T, String> items, ValueChanged<T> onChanged) => Container(
-    width: 330,
-    margin: const EdgeInsets.only(bottom: 18),
+    constraints: BoxConstraints(maxWidth: _r.s(440)),
+    margin: EdgeInsets.only(bottom: _r.s(18)),
     padding: const EdgeInsets.symmetric(horizontal: 14),
     decoration: BoxDecoration(
       border: Border.all(color: Colors.grey.shade500),
@@ -181,13 +216,18 @@ class _PrinterSettingsPageState extends State<PrinterSettingsPage> {
         key: Key(key),
         value: value,
         isExpanded: true,
-        itemHeight: 56,
+        itemHeight: math.max(kMinInteractiveDimension, _r.tap(56)),
         selectedItemBuilder: (_) => [
           for (final v in items.values)
             Row(
               children: [
-                SizedBox(width: 165, child: Text(label, style: _label)),
-                Text(v, style: _label),
+                SizedBox(
+                  width: _r.s(200),
+                  child: Text(label, style: _label, maxLines: 1, overflow: TextOverflow.ellipsis),
+                ),
+                Flexible(
+                  child: Text(v, style: _label, maxLines: 1, overflow: TextOverflow.ellipsis),
+                ),
               ],
             ),
         ],
@@ -198,7 +238,7 @@ class _PrinterSettingsPageState extends State<PrinterSettingsPage> {
   );
 
   Widget _check(String key, String title, String hint, bool value, ValueChanged<bool>? onChanged) => Padding(
-    padding: const EdgeInsets.only(bottom: 14),
+    padding: EdgeInsets.only(bottom: _r.s(14)),
     child: Row(
       children: [
         Expanded(
@@ -210,8 +250,13 @@ class _PrinterSettingsPageState extends State<PrinterSettingsPage> {
             ],
           ),
         ),
-        Checkbox(key: Key(key), value: value, onChanged: onChanged == null ? null : (v) => onChanged(v ?? false)),
-        const SizedBox(width: 60),
+        Checkbox(
+          key: Key(key),
+          value: value,
+          materialTapTargetSize: MaterialTapTargetSize.padded,
+          onChanged: onChanged == null ? null : (v) => onChanged(v ?? false),
+        ),
+        SizedBox(width: _r.s(60)),
       ],
     ),
   );
@@ -288,9 +333,12 @@ class _PrinterSettingsPageState extends State<PrinterSettingsPage> {
           _s.drawer,
           (v) => _save(_s.copyWith(drawer: v)),
         ),
-        const SizedBox(height: 18),
-        const Text('Print Count :-', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 18),
+        SizedBox(height: _r.s(18)),
+        Text(
+          'Print Count :-',
+          style: TextStyle(fontSize: _font(22), fontWeight: FontWeight.bold),
+        ),
+        SizedBox(height: _r.s(18)),
         for (final (key, label, channel) in [
           ('countDelivery', 'Home Delivery', Channel.homeDelivery),
           ('countDineIn', 'Dine In', Channel.dineIn),
@@ -321,13 +369,13 @@ class _PrinterSettingsPageState extends State<PrinterSettingsPage> {
       DropdownButtonFormField<PrinterKind>(
         key: const Key('printerType'),
         initialValue: _kind,
-        decoration: const InputDecoration(
+        decoration: InputDecoration(
           labelText: 'Type Printer Device',
-          labelStyle: TextStyle(color: PosColors.navy),
-          icon: Icon(Icons.print, color: PosColors.navy, size: 30),
+          labelStyle: const TextStyle(color: PosColors.navy),
+          icon: Icon(Icons.print, color: PosColors.navy, size: _font(30, min: 24)),
           border: InputBorder.none,
         ),
-        style: Theme.of(context).textTheme.titleMedium?.copyWith(fontSize: 18),
+        style: Theme.of(context).textTheme.titleMedium?.copyWith(fontSize: _font(18, min: 16)),
         items: [for (final k in PrinterKind.values) DropdownMenuItem(value: k, child: Text(k.label))],
         onChanged: (k) {
           if (k == null || k == _kind) return;
@@ -339,8 +387,11 @@ class _PrinterSettingsPageState extends State<PrinterSettingsPage> {
         padding: const EdgeInsets.fromLTRB(16, 8, 0, 0),
         child: Row(
           children: [
-            const Expanded(
-              child: Text('Available Printers', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+            Expanded(
+              child: Text(
+                'Available Printers',
+                style: TextStyle(fontSize: _font(22), fontWeight: FontWeight.bold),
+              ),
             ),
             if (_kind != PrinterKind.wifi)
               IconButton(
@@ -353,7 +404,7 @@ class _PrinterSettingsPageState extends State<PrinterSettingsPage> {
         ),
       ),
       SizedBox(
-        height: 200,
+        height: math.max(160, _r.s(240)),
         child: _found.isEmpty
             ? Center(
                 child: Text(
@@ -361,7 +412,7 @@ class _PrinterSettingsPageState extends State<PrinterSettingsPage> {
                       ? 'Available Printers Not Found\nEnter the printer\'s IP address below'
                       : 'Available Printers Not Found',
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 18),
+                  style: TextStyle(fontSize: _font(18, min: 15)),
                 ),
               )
             : ListView(
@@ -372,8 +423,8 @@ class _PrinterSettingsPageState extends State<PrinterSettingsPage> {
                       selected: _selected?.sameAs(d) ?? false,
                       selectedTileColor: PosColors.card,
                       leading: Icon(d.kind == PrinterKind.usb ? Icons.usb : Icons.bluetooth),
-                      title: Text(d.name),
-                      subtitle: Text(d.address ?? d.queueName ?? ''),
+                      title: Text(d.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+                      subtitle: Text(d.address ?? d.queueName ?? '', maxLines: 1, overflow: TextOverflow.ellipsis),
                       trailing: (_selected?.sameAs(d) ?? false) ? const Icon(Icons.check, color: PosColors.navy) : null,
                       onTap: () => setState(() {
                         _selected = d;
@@ -387,11 +438,11 @@ class _PrinterSettingsPageState extends State<PrinterSettingsPage> {
         key: const Key('printerIp'),
         controller: _ip,
         keyboardType: TextInputType.number,
-        style: const TextStyle(fontSize: 18),
-        decoration: const InputDecoration(
-          icon: Icon(Icons.wifi, size: 30),
+        style: TextStyle(fontSize: _font(18, min: 16)),
+        decoration: InputDecoration(
+          icon: Icon(Icons.wifi, size: _font(30, min: 24)),
           hintText: 'Ip Address',
-          contentPadding: EdgeInsets.symmetric(vertical: 18),
+          contentPadding: EdgeInsets.symmetric(vertical: math.max(14, _r.s(18))),
         ),
         onChanged: (_) => setState(() => _selected = null),
       ),
@@ -399,23 +450,31 @@ class _PrinterSettingsPageState extends State<PrinterSettingsPage> {
         key: const Key('printerPort'),
         controller: _port,
         keyboardType: TextInputType.number,
-        style: const TextStyle(fontSize: 18),
-        decoration: const InputDecoration(icon: Icon(Icons.tag, size: 30), labelText: 'Port'),
+        style: TextStyle(fontSize: _font(18, min: 16)),
+        decoration: InputDecoration(
+          icon: Icon(Icons.tag, size: _font(30, min: 24)),
+          labelText: 'Port',
+        ),
         onChanged: (_) => setState(() {}),
       ),
-      const SizedBox(height: 14),
+      SizedBox(height: _r.s(14)),
       Center(
         child: SizedBox(
-          width: 250,
+          width: math.max(220, _r.s(300)),
           child: OutlinedButton(
             key: const Key('printTest'),
             style: OutlinedButton.styleFrom(
               foregroundColor: PosColors.accent,
               shape: const StadiumBorder(),
-              padding: const EdgeInsets.symmetric(vertical: 12),
+              minimumSize: Size(0, _r.tap(50)),
             ),
             onPressed: _test,
-            child: const Text('Print test ticket', style: TextStyle(fontSize: 16)),
+            child: Text(
+              'Print test ticket',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: _font(16)),
+            ),
           ),
         ),
       ),
@@ -426,20 +485,41 @@ class _PrinterSettingsPageState extends State<PrinterSettingsPage> {
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('Printer Settings')),
     body: LayoutBuilder(
-      builder: (_, c) {
-        if (c.maxWidth < 900) {
-          return ListView(padding: const EdgeInsets.all(20), children: [_right(), const Divider(height: 40), _left()]);
+      builder: (context, c) {
+        final r = _r;
+        final pad = r.gutter * 1.5;
+        // Phones and portrait tablets: one scrolling column (printer search first), centred with a
+        // readable width. Wider: settings | printer search side by side, capped on big screens.
+        if (c.maxWidth < Breakpoints.expanded) {
+          final side = math.max(pad, (c.maxWidth - math.max(560, r.s(760))) / 2);
+          return SingleChildScrollView(
+            padding: EdgeInsets.symmetric(horizontal: side, vertical: pad),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _right(),
+                Divider(height: r.s(40) + 8),
+                _left(),
+              ],
+            ),
+          );
         }
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: SingleChildScrollView(padding: const EdgeInsets.all(24), child: _left()),
+        return Align(
+          alignment: Alignment.topCenter,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: r.s(1800)),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(padding: EdgeInsets.all(pad), child: _left()),
+                ),
+                Expanded(
+                  child: SingleChildScrollView(padding: EdgeInsets.all(pad), child: _right()),
+                ),
+              ],
             ),
-            Expanded(
-              child: SingleChildScrollView(padding: const EdgeInsets.all(24), child: _right()),
-            ),
-          ],
+          ),
         );
       },
     ),

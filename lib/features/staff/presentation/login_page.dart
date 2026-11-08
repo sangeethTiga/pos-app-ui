@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../app/routes.dart';
 import '../../../app/theme.dart';
+import '../../../core/responsive/responsive.dart';
 import '../../terminal/terminal_cubit.dart';
 import '../../terminal/widgets/sync_chip.dart';
 import '../data/staff_repository.dart';
@@ -40,6 +41,7 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
+    final r = context.r;
     final base = ThemeData(
       brightness: Brightness.dark,
       colorSchemeSeed: PosColors.navy,
@@ -48,10 +50,11 @@ class _LoginPageState extends State<LoginPage> {
     return Theme(
       data: base.copyWith(
         scaffoldBackgroundColor: Colors.black,
+        materialTapTargetSize: MaterialTapTargetSize.padded,
         inputDecorationTheme: InputDecorationTheme(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 30, vertical: 26),
-          labelStyle: TextStyle(color: Colors.grey.shade400, fontSize: 18),
-          hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 18),
+          contentPadding: EdgeInsets.symmetric(horizontal: r.s(30), vertical: r.s(26)),
+          labelStyle: TextStyle(color: Colors.grey.shade400, fontSize: _font(r, 18)),
+          hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: _font(r, 18)),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(4),
             borderSide: const BorderSide(color: Colors.white70, width: 1.4),
@@ -80,48 +83,82 @@ class _LoginPageState extends State<LoginPage> {
               listenWhen: (a, b) => a.lastReport != b.lastReport,
               listener: (context, _) => cubit.load(),
               child: SafeArea(
-                child: Stack(
+                child: Column(
                   children: [
-                    LayoutBuilder(
-                      builder: (context, c) {
-                        final wide = c.maxWidth >= 900;
-                        final form = _form(context, state, cubit);
-                        return wide
-                            ? Row(
-                                children: [
-                                  Expanded(
-                                    child: Center(child: _Wordmark(name: widget.storeName)),
-                                  ),
-                                  SizedBox(width: (c.maxWidth * 0.36).clamp(420, 760).toDouble(), child: form),
-                                  const SizedBox(width: 24),
-                                ],
-                              )
-                            : SingleChildScrollView(
-                                padding: const EdgeInsets.all(24),
-                                child: Column(
-                                  children: [
-                                    const SizedBox(height: 40),
-                                    _Wordmark(name: widget.storeName),
-                                    const SizedBox(height: 40),
-                                    form,
-                                  ],
+                    // Sync state and device status left, device role right; wraps on narrow phones.
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(4, 4, 4, 0),
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: Wrap(
+                          alignment: WrapAlignment.spaceBetween,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Flexible(child: SyncChip()),
+                                IconButton(
+                                  tooltip: 'Device status',
+                                  icon: const Icon(Icons.info_outline, color: Colors.white54),
+                                  onPressed: () => context.push(Routes.home),
                                 ),
-                              );
-                      },
+                              ],
+                            ),
+                            _RoleBadge(deviceType: state.deviceType),
+                          ],
+                        ),
+                      ),
                     ),
-                    Positioned(top: 4, right: 4, child: _RoleBadge(deviceType: state.deviceType)),
-                    Positioned(
-                      top: 4,
-                      left: 8,
-                      child: Row(
-                        children: [
-                          const SyncChip(),
-                          IconButton(
-                            tooltip: 'Device status',
-                            icon: const Icon(Icons.info_outline, color: Colors.white54),
-                            onPressed: () => context.push(Routes.home),
-                          ),
-                        ],
+                    Expanded(
+                      child: LayoutBuilder(
+                        builder: (context, c) {
+                          final form = _form(context, state, cubit, r);
+                          // Brand beside the form on landscape screens (phones too), above it otherwise.
+                          final side = c.maxWidth >= Breakpoints.medium && c.maxWidth > c.maxHeight;
+                          if (side) {
+                            return Row(
+                              children: [
+                                Expanded(
+                                  child: Center(
+                                    child: SingleChildScrollView(child: _Wordmark(name: widget.storeName)),
+                                  ),
+                                ),
+                                SizedBox(
+                                  width: (c.maxWidth * 0.4).clamp(r.s(420), r.s(760)),
+                                  child: Center(
+                                    child: SingleChildScrollView(
+                                      padding: EdgeInsets.symmetric(vertical: r.s(24)),
+                                      child: form,
+                                    ),
+                                  ),
+                                ),
+                                SizedBox(width: r.gutter * 2),
+                              ],
+                            );
+                          }
+                          final pad = r.gutter * 2;
+                          return SingleChildScrollView(
+                            padding: EdgeInsets.all(pad),
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(minHeight: (c.maxHeight - pad * 2).clamp(0, double.infinity)),
+                              child: Center(
+                                child: ConstrainedBox(
+                                  constraints: BoxConstraints(maxWidth: r.s(760)),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                                    children: [
+                                      Center(child: _Wordmark(name: widget.storeName)),
+                                      SizedBox(height: r.s(40)),
+                                      form,
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        },
                       ),
                     ),
                   ],
@@ -134,123 +171,128 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  Widget _form(BuildContext context, LoginState state, LoginCubit cubit) {
+  Widget _form(BuildContext context, LoginState state, LoginCubit cubit, Responsive r) {
     if (state.loaded && state.users.isEmpty) return _NoUsers(state: state);
-    const gap = SizedBox(height: 44);
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(vertical: 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            DropdownButtonFormField<StaffUser>(
-              key: const Key('userField'),
-              initialValue: state.selected,
-              isExpanded: true,
-              icon: const Icon(Icons.keyboard_arrow_down, color: Colors.white, size: 30),
-              hint: const Text('User Name'),
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 20, color: Colors.white),
-              items: [
-                for (final u in state.users)
-                  DropdownMenuItem(
-                    value: u,
-                    key: Key('user-${u.id}'),
-                    child: Text(u.loginName, overflow: TextOverflow.ellipsis),
-                  ),
-              ],
-              onChanged: state.checking ? null : cubit.selectUser,
-            ),
-            gap,
-            TextField(
-              key: const Key('passwordField'),
-              controller: _password,
-              obscureText: !_showPassword,
-              enabled: !state.checking,
-              style: const TextStyle(fontSize: 20),
-              decoration: InputDecoration(
-                hintText: 'Password',
-                suffixIcon: Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: IconButton(
-                    key: const Key('togglePassword'),
-                    icon: Icon(_showPassword ? Icons.visibility_off : Icons.visibility, size: 30),
-                    onPressed: () => setState(() => _showPassword = !_showPassword),
-                  ),
-                ),
+    final gap = SizedBox(height: r.s(44));
+    final arrow = Icon(Icons.keyboard_arrow_down, color: Colors.white, size: _font(r, 30));
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        DropdownButtonFormField<StaffUser>(
+          key: const Key('userField'),
+          initialValue: state.selected,
+          isExpanded: true,
+          icon: arrow,
+          hint: const Text('User Name'),
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: _font(r, 20), color: Colors.white),
+          items: [
+            for (final u in state.users)
+              DropdownMenuItem(
+                value: u,
+                key: Key('user-${u.id}'),
+                child: Text(u.loginName, overflow: TextOverflow.ellipsis),
               ),
-              onSubmitted: (_) => _login(),
-            ),
-            if (state.needsShift) ...[
-              gap,
-              DropdownButtonFormField<String>(
-                key: const Key('shiftField'),
-                initialValue: state.shiftName,
-                isExpanded: true,
-                icon: const Icon(Icons.keyboard_arrow_down, color: Colors.white, size: 30),
-                hint: const Text('Shift'),
-                style: Theme.of(context).textTheme.titleLarge
-                    ?.copyWith(fontSize: 24, fontWeight: FontWeight.w500, color: Colors.white),
-                items: [for (final n in state.shiftNames) DropdownMenuItem(value: n, child: Text(n))],
-                onChanged: state.checking ? null : cubit.selectShift,
-              ),
-              gap,
-              TextField(
-                key: const Key('drawerField'),
-                controller: _balance,
-                enabled: !state.checking,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
-                style: const TextStyle(fontSize: 22),
-                decoration: const InputDecoration(
-                  labelText: 'Open Drawer Balance',
-                  floatingLabelBehavior: FloatingLabelBehavior.always,
-                  enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: Color(0xFF111111))),
-                ),
-                onSubmitted: (_) => _login(),
-              ),
-            ] else if (state.shiftAlreadyOpen) ...[
-              const SizedBox(height: 20),
-              Text(
-                'Shift open${state.openShiftName != null ? ': ${state.openShiftName}' : ''}',
-                key: const Key('shiftOpenInfo'),
-                style: const TextStyle(color: Colors.white70, fontSize: 16),
-              ),
-            ],
-            if (state.error != null) ...[
-              const SizedBox(height: 20),
-              Text(
-                state.error!,
-                key: const Key('loginError'),
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Color(0xFFFF6B6B), fontSize: 16),
-              ),
-            ],
-            const SizedBox(height: 56),
-            Center(
-              child: SizedBox(
-                width: 274,
-                height: 88,
-                child: FilledButton(
-                  key: const Key('loginButton'),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: PosColors.navy,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                  ),
-                  onPressed: state.checking ? null : _login,
-                  child: state.checking
-                      ? const SizedBox(
-                          height: 24,
-                          width: 24,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                        )
-                      : const Text('Login', style: TextStyle(fontSize: 26, color: Colors.white)),
-                ),
-              ),
-            ),
           ],
+          onChanged: state.checking ? null : cubit.selectUser,
         ),
-      ),
+        gap,
+        TextField(
+          key: const Key('passwordField'),
+          controller: _password,
+          obscureText: !_showPassword,
+          enabled: !state.checking,
+          style: TextStyle(fontSize: _font(r, 20)),
+          decoration: InputDecoration(
+            hintText: 'Password',
+            suffixIcon: Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: IconButton(
+                key: const Key('togglePassword'),
+                icon: Icon(_showPassword ? Icons.visibility_off : Icons.visibility, size: _font(r, 30)),
+                onPressed: () => setState(() => _showPassword = !_showPassword),
+              ),
+            ),
+          ),
+          onSubmitted: (_) => _login(),
+        ),
+        if (state.needsShift) ...[
+          gap,
+          DropdownButtonFormField<String>(
+            key: const Key('shiftField'),
+            initialValue: state.shiftName,
+            isExpanded: true,
+            icon: arrow,
+            hint: const Text('Shift'),
+            style: Theme.of(context).textTheme.titleLarge
+                ?.copyWith(fontSize: _font(r, 24), fontWeight: FontWeight.w500, color: Colors.white),
+            items: [
+              for (final n in state.shiftNames)
+                DropdownMenuItem(
+                  value: n,
+                  child: Text(n, overflow: TextOverflow.ellipsis),
+                ),
+            ],
+            onChanged: state.checking ? null : cubit.selectShift,
+          ),
+          gap,
+          TextField(
+            key: const Key('drawerField'),
+            controller: _balance,
+            enabled: !state.checking,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
+            style: TextStyle(fontSize: _font(r, 22)),
+            decoration: const InputDecoration(
+              labelText: 'Open Drawer Balance',
+              floatingLabelBehavior: FloatingLabelBehavior.always,
+              enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: Color(0xFF111111))),
+            ),
+            onSubmitted: (_) => _login(),
+          ),
+        ] else if (state.shiftAlreadyOpen) ...[
+          SizedBox(height: r.s(20)),
+          Text(
+            'Shift open${state.openShiftName != null ? ': ${state.openShiftName}' : ''}',
+            key: const Key('shiftOpenInfo'),
+            style: TextStyle(color: Colors.white70, fontSize: _font(r, 16)),
+          ),
+        ],
+        if (state.error != null) ...[
+          SizedBox(height: r.s(20)),
+          Text(
+            state.error!,
+            key: const Key('loginError'),
+            textAlign: TextAlign.center,
+            style: TextStyle(color: const Color(0xFFFF6B6B), fontSize: _font(r, 16)),
+          ),
+        ],
+        SizedBox(height: r.s(56)),
+        Center(
+          child: SizedBox(
+            width: r.s(274).clamp(200, double.infinity),
+            height: r.tap(88),
+            child: FilledButton(
+              key: const Key('loginButton'),
+              style: FilledButton.styleFrom(
+                backgroundColor: PosColors.navy,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+              ),
+              onPressed: state.checking ? null : _login,
+              child: state.checking
+                  ? const SizedBox(
+                      height: 24,
+                      width: 24,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : Text(
+                      'Login',
+                      style: TextStyle(fontSize: _font(r, 26), color: Colors.white),
+                    ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -261,24 +303,39 @@ class _Wordmark extends StatelessWidget {
   final String name;
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.all(24),
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          name.isEmpty ? 'POS' : name,
-          style: const TextStyle(fontSize: 88, fontWeight: FontWeight.w600, color: Colors.white, height: 1),
-        ),
-        const SizedBox(height: 10),
-        const Text(
-          'POINT OF SALE',
-          style: TextStyle(fontSize: 18, letterSpacing: 2, color: Colors.white, fontWeight: FontWeight.w600),
-        ),
-      ],
-    ),
-  );
+  Widget build(BuildContext context) {
+    final r = context.r;
+    return Padding(
+      padding: EdgeInsets.all(r.s(24)),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            name.isEmpty ? 'POS' : name,
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: r.pick(compact: 44.0, medium: 56.0, expanded: r.f(88)),
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
+              height: 1,
+            ),
+          ),
+          SizedBox(height: r.s(10)),
+          Text(
+            'POINT OF SALE',
+            style: TextStyle(
+              fontSize: _font(r, 18),
+              letterSpacing: 2,
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _RoleBadge extends StatelessWidget {
@@ -287,25 +344,34 @@ class _RoleBadge extends StatelessWidget {
   final String deviceType;
 
   @override
-  Widget build(BuildContext context) => Row(
-    key: const Key('deviceTypeBadge'),
-    children: [
-      Text(
-        deviceType,
-        style: const TextStyle(color: PosColors.online, fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: 0.5),
-      ),
-      const SizedBox(width: 8),
-      Container(
-        width: 44,
-        height: 44,
-        decoration: BoxDecoration(
-          color: PosColors.online,
-          shape: BoxShape.circle,
-          border: Border.all(color: Colors.white, width: 2),
+  Widget build(BuildContext context) {
+    final r = context.r;
+    return Row(
+      key: const Key('deviceTypeBadge'),
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          deviceType,
+          style: TextStyle(
+            color: PosColors.online,
+            fontSize: _font(r, 24),
+            fontWeight: FontWeight.bold,
+            letterSpacing: 0.5,
+          ),
         ),
-      ),
-    ],
-  );
+        const SizedBox(width: 8),
+        Container(
+          width: r.s(44).clamp(28, double.infinity),
+          height: r.s(44).clamp(28, double.infinity),
+          decoration: BoxDecoration(
+            color: PosColors.online,
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white, width: 2),
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 class _NoUsers extends StatelessWidget {
@@ -326,7 +392,8 @@ class _NoUsers extends StatelessWidget {
                 ? 'No ${state.deviceType == 'CAPTAIN' ? 'Captain' : 'Cashier'} accounts for this terminal.'
                 : 'No staff on this terminal yet.',
             key: const Key('noUsers'),
-            style: const TextStyle(fontSize: 20, color: Colors.white),
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: _font(context.r, 20), color: Colors.white),
           ),
           if (state.otherStaff > 0) ...[
             const SizedBox(height: 8),
@@ -359,3 +426,6 @@ class _NoUsers extends StatelessWidget {
     );
   }
 }
+
+/// Font size token for [designPx] (drawn on the 1920-wide screen), never below a readable 14.
+double _font(Responsive r, double designPx) => r.f(designPx) < 14 ? 14 : r.f(designPx);

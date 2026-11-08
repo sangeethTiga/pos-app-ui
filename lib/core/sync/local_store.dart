@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:drift/drift.dart';
@@ -148,6 +149,12 @@ class LocalStore {
 
   // ---- incoming --------------------------------------------------------------------------
 
+  final _incoming = StreamController<Set<String>>.broadcast();
+
+  /// Entities that just changed through [applyIncoming] (server changes, including other
+  /// terminals' orders): screens reload live.
+  Stream<Set<String>> get incoming => _incoming.stream;
+
   /// Applies changes from the server (or a peer) in one transaction.
   Future<void> applyIncoming(List<SyncChange> changes) async {
     if (changes.isEmpty) return;
@@ -159,6 +166,7 @@ class LocalStore {
       }
       if (clock != null) await setValue('last_hlc', clock.last.toString());
     });
+    _incoming.add({for (final c in changes) c.entity});
   }
 
   Future<void> _apply(SyncChange c) async {

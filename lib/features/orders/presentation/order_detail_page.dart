@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../app/routes.dart';
 import '../../../core/di/injection.dart';
+import '../../../core/responsive/responsive.dart';
 import '../../../core/terminal/terminal_context.dart';
 import '../../catalogue/data/catalogue_repository.dart';
 import '../../printing/data/print_center.dart';
@@ -12,7 +13,7 @@ import '../../sales/domain/cart.dart';
 import '../../sales/domain/checkout_service.dart';
 import '../../sales/domain/order_manager.dart';
 import '../../sales/domain/order_service.dart';
-import '../../sales/presentation/widgets/home_dialogs.dart';
+import '../../sales/presentation/widgets/home_dialogs.dart' show HomeColors, showChooseTable;
 import '../../sales/presentation/widgets/payment_dialog.dart';
 import '../../staff/data/staff_repository.dart';
 import '../../terminal/terminal_cubit.dart';
@@ -20,6 +21,9 @@ import 'order_detail_cubit.dart';
 
 /// Order Details: bill and the actions on it (settle, transfers, split, type change, edit, void,
 /// coupon, print).
+///
+/// From [Breakpoints.splitPane] up the actions are a scrolling column beside the bill; below it the
+/// bill comes first and the actions follow as a grid of buttons, all in one scroll view.
 class OrderDetailPage extends StatelessWidget {
   const OrderDetailPage({super.key});
 
@@ -33,19 +37,11 @@ class OrderDetailPage extends StatelessWidget {
       builder: (context, s) => Scaffold(
         backgroundColor: HomeColors.page,
         body: SafeArea(
-          child: LayoutBuilder(
-            builder: (context, c) => s.loading || s.detail == null
-                ? const Center(child: CircularProgressIndicator())
-                : c.maxWidth < 700
-                ? _DetailBody(state: s, phone: true)
-                : scaledForHome(
-                    context,
-                    Material(
-                      color: HomeColors.page,
-                      child: _DetailBody(state: s, phone: false),
-                    ),
-                  ),
-          ),
+          child: s.loading || s.detail == null
+              ? const Center(child: CircularProgressIndicator())
+              : ResponsiveBuilder(
+                  builder: (context, r) => _DetailBody(state: s, r: r),
+                ),
         ),
       ),
     );
@@ -53,52 +49,89 @@ class OrderDetailPage extends StatelessWidget {
 }
 
 class _DetailBody extends StatelessWidget {
-  const _DetailBody({required this.state, required this.phone});
+  const _DetailBody({required this.state, required this.r});
   final OrderDetailState state;
-  final bool phone;
+  final Responsive r;
 
   @override
   Widget build(BuildContext context) {
-    final actions = _Actions(state: state);
-    final bill = _Bill(state: state);
+    final g = r.gutter;
+    final back = IconButton(
+      key: const Key('detailBack'),
+      iconSize: r.f(30),
+      constraints: BoxConstraints(minWidth: r.minTap, minHeight: r.minTap),
+      icon: const Icon(Icons.arrow_back_ios_new),
+      onPressed: () => context.pop(),
+    );
     return Column(
       children: [
         Container(
           color: Colors.white,
-          width: double.infinity,
-          height: 68,
-          child: Stack(
-            alignment: Alignment.center,
+          constraints: BoxConstraints(minHeight: r.tap(68)),
+          padding: EdgeInsets.symmetric(horizontal: r.s(6)),
+          child: Row(
             children: [
-              Positioned(
-                left: 6,
-                child: IconButton(
-                  key: const Key('detailBack'),
-                  icon: const Icon(Icons.arrow_back_ios_new, size: 30),
-                  onPressed: () => context.pop(),
+              back,
+              Expanded(
+                child: Text(
+                  'Order Details',
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: r.f(32)),
                 ),
               ),
-              Text('Order Details', style: TextStyle(fontSize: phone ? 22 : 32)),
+              SizedBox(width: r.minTap),
             ],
           ),
         ),
         Expanded(
-          child: phone
-              ? ListView(
-                  padding: const EdgeInsets.all(12),
-                  children: [
-                    SizedBox(height: 520, child: bill),
-                    const SizedBox(height: 12),
-                    actions,
-                  ],
+          child: r.splitPane
+              ? Padding(
+                  padding: EdgeInsets.symmetric(horizontal: g),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      SizedBox(
+                        width: r.s(380),
+                        child: SingleChildScrollView(
+                          padding: EdgeInsets.only(bottom: g),
+                          child: _Actions(state: state, r: r, grid: false),
+                        ),
+                      ),
+                      SizedBox(width: r.s(36)),
+                      Flexible(
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(maxWidth: r.s(1100)),
+                          child: LayoutBuilder(
+                            builder: (context, c) {
+                              final ts = MediaQuery.textScalerOf(context);
+                              // Enough height for the fixed parts plus a few item rows: the item
+                              // list scrolls by itself; otherwise the whole bill scrolls.
+                              final fill = c.maxHeight >= r.s(320) + ts.scale(r.s(340));
+                              return fill
+                                  ? _Bill(state: state, r: r, fill: true)
+                                  : SingleChildScrollView(
+                                      child: _Bill(state: state, r: r, fill: false),
+                                    );
+                            },
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 )
-              : Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SizedBox(width: 380, child: SingleChildScrollView(child: actions)),
-                    const SizedBox(width: 36),
-                    SizedBox(width: 640, child: bill),
-                  ],
+              : SingleChildScrollView(
+                  padding: EdgeInsets.fromLTRB(g, 0, g, g),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _Bill(state: state, r: r, fill: false),
+                      SizedBox(height: r.s(16)),
+                      _Actions(state: state, r: r, grid: true),
+                    ],
+                  ),
                 ),
         ),
       ],
@@ -106,11 +139,15 @@ class _DetailBody extends StatelessWidget {
   }
 }
 
-// ---- left: actions ------------------------------------------------------------------------------
+// ---- actions ------------------------------------------------------------------------------------
 
 class _Actions extends StatelessWidget {
-  const _Actions({required this.state});
+  const _Actions({required this.state, required this.r, required this.grid});
   final OrderDetailState state;
+  final Responsive r;
+
+  /// A grid of buttons as wide as the screen (narrow layout); otherwise a single column.
+  final bool grid;
 
   OrderDetailCubit _cubit(BuildContext c) => c.read<OrderDetailCubit>();
   StaffUser get _user => sl<StaffSession>().user;
@@ -131,53 +168,111 @@ class _Actions extends StatelessWidget {
     final d = state.detail!;
     final open = d.summary.ongoing;
     final dine = d.summary.channel == Channel.dineIn;
-    Widget btn(String key, String label, VoidCallback onTap, {IconData? icon}) => Padding(
-      padding: const EdgeInsets.only(bottom: 18),
-      child: SizedBox(
-        height: 70,
-        child: OutlinedButton(
-          key: Key(key),
-          style: OutlinedButton.styleFrom(
-            backgroundColor: Colors.white,
-            side: const BorderSide(color: HomeColors.navy, width: 1.4),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+    Widget btn(String key, String label, VoidCallback onTap, {IconData? icon}) => OutlinedButton(
+      key: Key(key),
+      style: OutlinedButton.styleFrom(
+        backgroundColor: Colors.white,
+        minimumSize: Size(0, r.tap(70)),
+        padding: EdgeInsets.symmetric(horizontal: r.s(12), vertical: r.s(6)),
+        side: const BorderSide(color: HomeColors.navy, width: 1.4),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+      ),
+      onPressed: state.busy ? null : onTap,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Flexible(
+            child: Text(
+              label,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: r.f(22), color: HomeColors.navy),
+            ),
           ),
-          onPressed: state.busy ? null : onTap,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Flexible(
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(label, style: const TextStyle(fontSize: 22, color: HomeColors.navy)),
-                ),
-              ),
-              if (icon != null) ...[const SizedBox(width: 24), Icon(icon, color: HomeColors.navy, size: 32)],
-            ],
-          ),
-        ),
+          if (icon != null) ...[SizedBox(width: r.s(24)), Icon(icon, color: HomeColors.navy, size: r.f(32))],
+        ],
       ),
     );
+    final buttons = [
+      if (open && dine) btn('tableTransfer', 'Table Transfer', () => _tableTransfer(context)),
+      if (open) btn('itemTransfer', 'Item Transfer', () => _itemTransfer(context)),
+      if (open) btn('billSplit', 'Bill Split', () => _split(context)),
+      if (open) btn('billType', 'Bill Type Change', () => _typeChange(context)),
+      if (open) btn('editOrder', 'Edit Order', () => _edit(context)),
+      if (open) btn('voidBill', 'Void Bill', () => _void(context)),
+      btn('detailHome', 'Home', () => context.go(Routes.sell)),
+      if (open) btn('applyCoupon', 'Apply Coupon', () => _coupon(context)),
+      btn('printBill', 'Print Bill', () => _printBill(context), icon: Icons.print),
+      btn('printKot', 'Print KOT', () => _printKot(context), icon: Icons.print),
+    ];
+    final gap = r.s(grid ? 14 : 18);
+    final Widget list;
+    if (grid) {
+      final width = r.width - 2 * r.gutter;
+      final cols = r.columns(width + gap, minTileWidth: 220, min: 2, max: 4);
+      final tile = ((width - gap * (cols - 1)) / cols).floorToDouble();
+      list = Wrap(
+        spacing: gap,
+        runSpacing: gap,
+        children: [for (final b in buttons) SizedBox(width: tile, child: b)],
+      );
+    } else {
+      list = Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (final b in buttons)
+            Padding(
+              padding: EdgeInsets.only(bottom: gap),
+              child: b,
+            ),
+        ],
+      );
+    }
     return Padding(
-      padding: const EdgeInsets.only(top: 12),
+      padding: EdgeInsets.only(top: r.s(12)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (open && !_t.isCaptain) ...[_settleMenu(context), const SizedBox(height: 22)],
-          if (open && dine) btn('tableTransfer', 'Table Transfer', () => _tableTransfer(context)),
-          if (open) btn('itemTransfer', 'Item Transfer', () => _itemTransfer(context)),
-          if (open) btn('billSplit', 'Bill Split', () => _split(context)),
-          if (open) btn('billType', 'Bill Type Change', () => _typeChange(context)),
-          if (open) btn('editOrder', 'Edit Order', () => _edit(context)),
-          if (open) btn('voidBill', 'Void Bill', () => _void(context)),
-          btn('detailHome', 'Home', () => context.go(Routes.sell)),
-          if (open) btn('applyCoupon', 'Apply Coupon', () => _coupon(context)),
-          btn('printBill', 'Print Bill', () => _printBill(context), icon: Icons.print),
-          btn('printKot', 'Print KOT', () => _printKot(context), icon: Icons.print),
+          if (open && !_t.isCaptain) ...[_settleMenu(context), SizedBox(height: r.s(grid ? 14 : 22))],
+          list,
         ],
       ),
     );
   }
+
+  // ---- dialogs ----------------------------------------------------------------------------------
+
+  /// Dialog in a [PosDialogFrame]: sized for the screen, clear of the keyboard, content scrolls,
+  /// buttons at least a finger high.
+  Future<T?> _dialog<T>(
+    BuildContext context, {
+    required Widget Function(BuildContext ctx, Responsive r) builder,
+    double maxWidth = 640,
+  }) => showPosDialog<T>(
+    context: context,
+    maxWidth: maxWidth,
+    builder: (ctx) {
+      final r = ctx.r;
+      final theme = Theme.of(ctx);
+      final buttons = ButtonStyle(
+        minimumSize: WidgetStatePropertyAll(Size(r.s(96), r.minTap)),
+        textStyle: WidgetStatePropertyAll(theme.textTheme.labelLarge?.copyWith(fontSize: r.f(20))),
+      );
+      return Theme(
+        data: theme.copyWith(
+          textButtonTheme: TextButtonThemeData(style: buttons),
+          filledButtonTheme: FilledButtonThemeData(style: buttons),
+          dialogTheme: theme.dialogTheme.copyWith(
+            insetPadding: EdgeInsets.zero,
+            titleTextStyle: theme.textTheme.headlineSmall?.copyWith(fontSize: r.f(26)),
+            contentTextStyle: theme.textTheme.bodyLarge?.copyWith(fontSize: r.f(18)),
+          ),
+        ),
+        child: Builder(builder: (ctx) => builder(ctx, r)),
+      );
+    },
+  );
 
   // ---- settle -----------------------------------------------------------------------------------
 
@@ -191,30 +286,33 @@ class _Actions extends StatelessWidget {
         PopupMenuItem(
           key: Key('settle-${m.kind}'),
           value: m,
-          height: 56,
-          child: Text('Settle by ${m.name}', style: const TextStyle(fontSize: 22)),
+          height: r.tap(56),
+          child: Text('Settle by ${m.name}', style: TextStyle(fontSize: r.f(22))),
         ),
-      const PopupMenuItem(
-        key: Key('settle-split'),
+      PopupMenuItem(
+        key: const Key('settle-split'),
         value: null,
-        height: 56,
-        child: Text('Split payment…', style: TextStyle(fontSize: 22)),
+        height: r.tap(56),
+        child: Text('Split payment…', style: TextStyle(fontSize: r.f(22))),
       ),
     ],
     child: Container(
-      height: 74,
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+      constraints: BoxConstraints(minHeight: r.tap(74)),
+      padding: EdgeInsets.symmetric(horizontal: r.s(24)),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(6),
         border: Border.all(color: HomeColors.navy, width: 3),
       ),
-      child: const Row(
+      child: Row(
         children: [
           Expanded(
-            child: Text('Settle', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+            child: Text(
+              'Settle',
+              style: TextStyle(fontSize: r.f(24), fontWeight: FontWeight.bold),
+            ),
           ),
-          Icon(Icons.arrow_drop_down, size: 34),
+          Icon(Icons.arrow_drop_down, size: r.f(34)),
         ],
       ),
     ),
@@ -264,29 +362,28 @@ class _Actions extends StatelessWidget {
     );
     final printError = r.status == PrintStatus.noPrinter ? null : r.message('Receipt');
     if (!context.mounted) return;
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) => scaledForHome(
-        ctx,
-        AlertDialog(
-          title: Text('Paid · ${s.orderNo}'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '${_t.currency} ${_t.money(s.priced.totalMinor + s.settlement.roundingMinor)}',
-                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-              ),
-              if (s.changeDueMinor > 0)
-                Text('Change: ${_t.money(s.changeDueMinor)}', style: const TextStyle(fontSize: 22)),
-              if (printError != null) Text(printError, style: const TextStyle(color: Colors.red)),
-            ],
-          ),
-          actions: [
-            FilledButton(key: const Key('settledOk'), onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
+    await _dialog<void>(
+      context,
+      maxWidth: 520,
+      builder: (ctx, r) => AlertDialog(
+        scrollable: true,
+        title: Text('Paid · ${s.orderNo}'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '${_t.currency} ${_t.money(s.priced.totalMinor + s.settlement.roundingMinor)}',
+              style: TextStyle(fontSize: r.f(24), fontWeight: FontWeight.bold),
+            ),
+            if (s.changeDueMinor > 0)
+              Text('Change: ${_t.money(s.changeDueMinor)}', style: TextStyle(fontSize: r.f(22))),
+            if (printError != null) Text(printError, style: const TextStyle(color: Colors.red)),
           ],
         ),
+        actions: [
+          FilledButton(key: const Key('settledOk'), onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
+        ],
       ),
     );
     if (context.mounted) context.pop();
@@ -318,41 +415,40 @@ class _Actions extends StatelessWidget {
 
   Future<Set<String>?> _pickLines(BuildContext context, String title, {Widget? extra}) {
     final selected = <String>{};
-    return showDialog<Set<String>>(
-      context: context,
-      builder: (ctx) => scaledForHome(
-        ctx,
-        StatefulBuilder(
-          builder: (ctx, set) => AlertDialog(
-            backgroundColor: HomeColors.dialog,
-            title: Text(title),
-            content: SizedBox(
-              width: 520,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  ?extra,
-                  for (final l in state.detail!.lines)
-                    CheckboxListTile(
-                      key: Key('pick-${l.id}'),
-                      value: selected.contains(l.id),
-                      activeColor: HomeColors.navy,
-                      onChanged: (v) => set(() => v == true ? selected.add(l.id) : selected.remove(l.id)),
-                      title: Text('${l.name}  ×${_qty(l.qtyMilli)}'),
-                      secondary: Text(_t.money(l.lineTotalMinor)),
-                    ),
-                ],
-              ),
+    return _dialog<Set<String>>(
+      context,
+      builder: (ctx, r) => StatefulBuilder(
+        builder: (ctx, set) => AlertDialog(
+          backgroundColor: HomeColors.dialog,
+          scrollable: true,
+          title: Text(title),
+          content: SizedBox(
+            width: r.s(520),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ?extra,
+                for (final l in state.detail!.lines)
+                  CheckboxListTile(
+                    key: Key('pick-${l.id}'),
+                    value: selected.contains(l.id),
+                    activeColor: HomeColors.navy,
+                    contentPadding: EdgeInsets.zero,
+                    onChanged: (v) => set(() => v == true ? selected.add(l.id) : selected.remove(l.id)),
+                    title: Text('${l.name}  ×${_qty(l.qtyMilli)}', style: TextStyle(fontSize: r.f(18))),
+                    secondary: Text(_t.money(l.lineTotalMinor), style: TextStyle(fontSize: r.f(18))),
+                  ),
+              ],
             ),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-              FilledButton(
-                key: const Key('pickOk'),
-                onPressed: selected.isEmpty ? null : () => Navigator.pop(ctx, selected),
-                child: const Text('OK'),
-              ),
-            ],
           ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            FilledButton(
+              key: const Key('pickOk'),
+              onPressed: selected.isEmpty ? null : () => Navigator.pop(ctx, selected),
+              child: const Text('OK'),
+            ),
+          ],
         ),
       ),
     );
@@ -374,7 +470,13 @@ class _Actions extends StatelessWidget {
           initialValue: target,
           isExpanded: true,
           decoration: const InputDecoration(labelText: 'Move to order'),
-          items: [for (final o in targets) DropdownMenuItem(value: o, child: Text('${o.orderNo} · ${o.where}'))],
+          items: [
+            for (final o in targets)
+              DropdownMenuItem(
+                value: o,
+                child: Text('${o.orderNo} · ${o.where}', maxLines: 1, overflow: TextOverflow.ellipsis),
+              ),
+          ],
           onChanged: (v) => set(() => target = v),
         ),
       ),
@@ -410,27 +512,31 @@ class _Actions extends StatelessWidget {
 
   Future<void> _typeChange(BuildContext context) async {
     final d = state.detail!;
-    final type = await showDialog<String>(
-      context: context,
-      builder: (ctx) => scaledForHome(
-        ctx,
-        SimpleDialog(
-          backgroundColor: HomeColors.dialog,
-          title: const Text('Bill Type Change'),
-          children: [
-            for (final (v, label) in [
-              (Channel.dineIn, 'Dine In'),
-              (Channel.takeaway, 'Take Away'),
-              (Channel.homeDelivery, 'Home Delivery'),
-            ])
-              if (v != d.summary.orderType || d.summary.isPartner)
-                SimpleDialogOption(
-                  key: Key('type-$v'),
-                  onPressed: () => Navigator.pop(ctx, v),
-                  child: Text(label, style: const TextStyle(fontSize: 20)),
+    final type = await _dialog<String>(
+      context,
+      maxWidth: 520,
+      builder: (ctx, r) => SimpleDialog(
+        backgroundColor: HomeColors.dialog,
+        title: const Text('Bill Type Change'),
+        children: [
+          for (final (v, label) in [
+            (Channel.dineIn, 'Dine In'),
+            (Channel.takeaway, 'Take Away'),
+            (Channel.homeDelivery, 'Home Delivery'),
+          ])
+            if (v != d.summary.orderType || d.summary.isPartner)
+              SimpleDialogOption(
+                key: Key('type-$v'),
+                onPressed: () => Navigator.pop(ctx, v),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: r.minTap),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(label, style: TextStyle(fontSize: r.f(20))),
+                  ),
                 ),
-          ],
-        ),
+              ),
+        ],
       ),
     );
     if (type == null || !context.mounted) return;
@@ -477,57 +583,57 @@ class _Actions extends StatelessWidget {
     if (!_can(context, 'order.void', 'void bills')) return;
     final reasonCtl = TextEditingController();
     String? reason;
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => scaledForHome(
-        ctx,
-        StatefulBuilder(
-          builder: (ctx, set) => AlertDialog(
-            backgroundColor: HomeColors.dialog,
-            title: Text('Void ${state.detail!.summary.orderNo}?'),
-            content: SizedBox(
-              width: 480,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    children: [
-                      for (final r in ['Cancelled by customer', 'Wrong order', 'Duplicate bill'])
-                        ChoiceChip(
-                          key: Key('reason-$r'),
-                          label: Text(r),
-                          selected: reason == r,
-                          onSelected: (_) => set(() {
-                            reason = r;
-                            reasonCtl.text = r;
-                          }),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: reasonCtl,
-                    onChanged: (v) => set(() => reason = v),
-                    decoration: const InputDecoration(labelText: 'Reason*', border: OutlineInputBorder()),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text('This cannot be undone.', style: TextStyle(color: Colors.red)),
-                ],
-              ),
+    final ok = await _dialog<bool>(
+      context,
+      builder: (ctx, r) => StatefulBuilder(
+        builder: (ctx, set) => AlertDialog(
+          backgroundColor: HomeColors.dialog,
+          scrollable: true,
+          title: Text('Void ${state.detail!.summary.orderNo}?'),
+          content: SizedBox(
+            width: r.s(480),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Wrap(
+                  spacing: r.s(10),
+                  runSpacing: r.s(10),
+                  children: [
+                    for (final r0 in ['Cancelled by customer', 'Wrong order', 'Duplicate bill'])
+                      ChoiceChip(
+                        key: Key('reason-$r0'),
+                        label: Text(r0, style: TextStyle(fontSize: r.f(18))),
+                        materialTapTargetSize: MaterialTapTargetSize.padded,
+                        selected: reason == r0,
+                        onSelected: (_) => set(() {
+                          reason = r0;
+                          reasonCtl.text = r0;
+                        }),
+                      ),
+                  ],
+                ),
+                SizedBox(height: r.s(12)),
+                TextField(
+                  controller: reasonCtl,
+                  onChanged: (v) => set(() => reason = v),
+                  style: TextStyle(fontSize: r.f(18)),
+                  decoration: const InputDecoration(labelText: 'Reason*', border: OutlineInputBorder()),
+                ),
+                SizedBox(height: r.s(8)),
+                const Text('This cannot be undone.', style: TextStyle(color: Colors.red)),
+              ],
             ),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-              FilledButton(
-                key: const Key('voidConfirm'),
-                style: FilledButton.styleFrom(backgroundColor: HomeColors.red),
-                onPressed: (reason ?? '').trim().isEmpty ? null : () => Navigator.pop(ctx, true),
-                child: const Text('Void Bill'),
-              ),
-            ],
           ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+            FilledButton(
+              key: const Key('voidConfirm'),
+              style: FilledButton.styleFrom(backgroundColor: HomeColors.red),
+              onPressed: (reason ?? '').trim().isEmpty ? null : () => Navigator.pop(ctx, true),
+              child: const Text('Void Bill'),
+            ),
+          ],
         ),
       ),
     );
@@ -544,43 +650,44 @@ class _Actions extends StatelessWidget {
   Future<void> _coupon(BuildContext context) async {
     final code = TextEditingController();
     final pct = TextEditingController();
-    final r = await showDialog<(String, String)>(
-      context: context,
-      builder: (ctx) => scaledForHome(
-        ctx,
-        AlertDialog(
-          backgroundColor: HomeColors.dialog,
-          title: const Text('Apply Coupon'),
-          content: SizedBox(
-            width: 440,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  key: const Key('couponCode'),
-                  controller: code,
-                  textCapitalization: TextCapitalization.characters,
-                  decoration: const InputDecoration(labelText: 'Coupon code', border: OutlineInputBorder()),
-                ),
-                const Padding(padding: EdgeInsets.all(10), child: Text('or')),
-                TextField(
-                  key: const Key('couponPercent'),
-                  controller: pct,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration: const InputDecoration(labelText: 'Discount %', border: OutlineInputBorder()),
-                ),
-              ],
-            ),
+    final r = await _dialog<(String, String)>(
+      context,
+      maxWidth: 560,
+      builder: (ctx, r) => AlertDialog(
+        backgroundColor: HomeColors.dialog,
+        scrollable: true,
+        title: const Text('Apply Coupon'),
+        content: SizedBox(
+          width: r.s(440),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                key: const Key('couponCode'),
+                controller: code,
+                textCapitalization: TextCapitalization.characters,
+                style: TextStyle(fontSize: r.f(18)),
+                decoration: const InputDecoration(labelText: 'Coupon code', border: OutlineInputBorder()),
+              ),
+              Padding(padding: EdgeInsets.all(r.s(10)), child: const Text('or')),
+              TextField(
+                key: const Key('couponPercent'),
+                controller: pct,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                style: TextStyle(fontSize: r.f(18)),
+                decoration: const InputDecoration(labelText: 'Discount %', border: OutlineInputBorder()),
+              ),
+            ],
           ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-            FilledButton(
-              key: const Key('couponApply'),
-              onPressed: () => Navigator.pop(ctx, (code.text, pct.text)),
-              child: const Text('Apply'),
-            ),
-          ],
         ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          FilledButton(
+            key: const Key('couponApply'),
+            onPressed: () => Navigator.pop(ctx, (code.text, pct.text)),
+            child: const Text('Apply'),
+          ),
+        ],
       ),
     );
     if (r == null || !context.mounted) return;
@@ -654,20 +761,20 @@ class _Actions extends StatelessWidget {
     if (r.status == PrintStatus.queued) return _toast(context, r.message(what)!);
     if (r.status == PrintStatus.failed) _toast(context, '${r.message(what)} — showing it on screen');
     if (r.tickets.isEmpty || !context.mounted) return;
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) => scaledForHome(
-        ctx,
-        AlertDialog(
-          title: Text('$what preview${r.status == PrintStatus.noPrinter ? ' (no printer set up)' : ''}'),
-          content: SingleChildScrollView(
-            child: Text(
-              r.tickets.map((t) => t.preview).join('\n'),
-              style: const TextStyle(fontFamily: 'monospace', fontSize: 14),
-            ),
+    await _dialog<void>(
+      context,
+      builder: (ctx, rs) => AlertDialog(
+        scrollable: true,
+        title: Text('$what preview${r.status == PrintStatus.noPrinter ? ' (no printer set up)' : ''}'),
+        // Tickets keep their printed line width; on narrow screens they scroll sideways.
+        content: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Text(
+            r.tickets.map((t) => t.preview).join('\n'),
+            style: TextStyle(fontFamily: 'monospace', fontSize: rs.f(16)),
           ),
-          actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close'))],
         ),
+        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close'))],
       ),
     );
   }
@@ -675,11 +782,16 @@ class _Actions extends StatelessWidget {
   static String _qty(int milli) => milli % 1000 == 0 ? '${milli ~/ 1000}' : (milli / 1000).toStringAsFixed(3);
 }
 
-// ---- right: bill -------------------------------------------------------------------------------------
+// ---- bill ----------------------------------------------------------------------------------------------
 
 class _Bill extends StatelessWidget {
-  const _Bill({required this.state});
+  const _Bill({required this.state, required this.r, required this.fill});
   final OrderDetailState state;
+  final Responsive r;
+
+  /// Fill the given height with the item list scrolling inside; otherwise size to the content
+  /// (the parent scrolls).
+  final bool fill;
 
   @override
   Widget build(BuildContext context) {
@@ -696,21 +808,76 @@ class _Bill extends StatelessWidget {
     };
     final vat = d.cart.lines.isEmpty ? 0 : d.cart.lines.first.taxRateBp;
     final inclusive = d.cart.lines.isEmpty || d.cart.lines.first.priceIncludesTax;
-    const big = TextStyle(fontSize: 26);
-    Widget sum(String a, String b, {bool bold = false}) => Padding(
+    final big = TextStyle(fontSize: r.f(26));
+    final bold = big.copyWith(fontWeight: FontWeight.bold, fontSize: r.f(28));
+    final info = TextStyle(fontSize: r.f(20));
+    final pad = r.s(24);
+    // [w]: width of the totals box; an amount wider than 60 % of it shrinks instead of overflowing.
+    Widget sum(double w, String a, String b, {bool strong = false}) => Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
         children: [
-          Expanded(
-            child: Text(a, style: bold ? big.copyWith(fontWeight: FontWeight.bold, fontSize: 28) : big),
+          Expanded(child: Text(a, style: strong ? bold : big)),
+          SizedBox(width: r.s(12)),
+          ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: w * 0.6),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerRight,
+              child: Text(b, maxLines: 1, style: strong ? bold : big),
+            ),
           ),
-          Text(b, style: bold ? big.copyWith(fontWeight: FontWeight.bold, fontSize: 28) : big),
         ],
       ),
     );
+    final lines = [
+      for (final l in d.lines)
+        Container(
+          margin: EdgeInsets.only(top: r.s(10)),
+          padding: EdgeInsets.fromLTRB(pad, r.s(14), pad, r.s(14)),
+          color: Colors.white,
+          child: Row(
+            children: [
+              Expanded(
+                flex: 5,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(l.name, style: TextStyle(fontSize: r.f(22))),
+                    if (state.showDetails) Text(t.money(l.unitPriceMinor), style: info),
+                    if (state.showDetails && l.note != null)
+                      Text(
+                        '* ${l.note}',
+                        style: TextStyle(color: Colors.deepOrange, fontSize: r.f(18)),
+                      ),
+                  ],
+                ),
+              ),
+              Expanded(
+                flex: 2,
+                child: Text(
+                  l.qtyMilli % 1000 == 0 ? '${l.qtyMilli ~/ 1000}' : (l.qtyMilli / 1000).toStringAsFixed(3),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: r.f(24)),
+                ),
+              ),
+              Expanded(
+                flex: 3,
+                child: Text(
+                  t.money(l.lineTotalMinor),
+                  textAlign: TextAlign.end,
+                  style: TextStyle(fontSize: r.f(24)),
+                ),
+              ),
+            ],
+          ),
+        ),
+    ];
+    final head = TextStyle(color: Colors.white, fontSize: r.f(19));
     return Padding(
-      padding: const EdgeInsets.only(top: 12),
+      padding: EdgeInsets.only(top: r.s(12)),
       child: Column(
+        mainAxisSize: fill ? MainAxisSize.max : MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
@@ -719,125 +886,82 @@ class _Bill extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Bill No :  #${o.orderNo}', style: const TextStyle(fontSize: 20)),
-                    Text('Bill Type: $type', style: const TextStyle(fontSize: 20)),
+                    Text('Bill No :  #${o.orderNo}', style: info),
+                    Text('Bill Type: $type', style: info),
                     Text(
                       'Date & Time : ${at == null ? '' : '${at.year}-${_two(at.month)}-${_two(at.day)} / ${_two(at.hour)}:${_two(at.minute)}:${_two(at.second)}'}',
-                      style: const TextStyle(fontSize: 20),
+                      style: info,
                     ),
                     if (o.status != 'OPEN')
                       Text(
                         'Status: ${o.state == 'ongoing' ? 'Billed' : o.state}${o.voidReason != null ? ' · ${o.voidReason}' : ''}',
-                        style: const TextStyle(fontSize: 20, color: Colors.deepOrange),
+                        style: info.copyWith(color: Colors.deepOrange),
                       ),
                   ],
                 ),
               ),
               IconButton(
                 key: const Key('toggleDetails'),
+                iconSize: r.f(32),
+                constraints: BoxConstraints(minWidth: r.minTap, minHeight: r.minTap),
                 onPressed: context.read<OrderDetailCubit>().toggleDetails,
-                icon: Icon(state.showDetails ? Icons.visibility : Icons.visibility_off, size: 32),
+                icon: Icon(state.showDetails ? Icons.visibility : Icons.visibility_off),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: r.s(12)),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+            padding: EdgeInsets.symmetric(horizontal: pad, vertical: r.s(14)),
             decoration: BoxDecoration(color: HomeColors.navy, borderRadius: BorderRadius.circular(4)),
             child: Row(
               children: [
+                Expanded(flex: 5, child: Text('items(${d.lines.length})', style: head)),
                 Expanded(
-                  flex: 5,
-                  child: Text('items(${d.lines.length})', style: const TextStyle(color: Colors.white, fontSize: 19)),
-                ),
-                const Expanded(
                   flex: 2,
-                  child: Text(
-                    'Qty',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.white, fontSize: 19),
-                  ),
+                  child: Text('Qty', textAlign: TextAlign.center, style: head),
                 ),
                 Expanded(
                   flex: 3,
-                  child: Text(
-                    'Price (${t.currency})',
-                    textAlign: TextAlign.end,
-                    style: const TextStyle(color: Colors.white, fontSize: 19),
-                  ),
+                  child: Text('Price (${t.currency})', textAlign: TextAlign.end, style: head),
                 ),
               ],
             ),
           ),
-          Expanded(
-            child: ListView(
-              children: [
-                for (final l in d.lines)
-                  Container(
-                    margin: const EdgeInsets.only(top: 10),
-                    padding: const EdgeInsets.fromLTRB(24, 14, 24, 14),
-                    color: Colors.white,
-                    child: Row(
-                      children: [
-                        Expanded(
-                          flex: 5,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(l.name, style: const TextStyle(fontSize: 22)),
-                              if (state.showDetails)
-                                Text(t.money(l.unitPriceMinor), style: const TextStyle(fontSize: 20)),
-                              if (state.showDetails && l.note != null)
-                                Text('* ${l.note}', style: const TextStyle(color: Colors.deepOrange)),
-                            ],
-                          ),
-                        ),
-                        Expanded(
-                          flex: 2,
-                          child: Text(
-                            l.qtyMilli % 1000 == 0 ? '${l.qtyMilli ~/ 1000}' : (l.qtyMilli / 1000).toStringAsFixed(3),
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(fontSize: 24),
-                          ),
-                        ),
-                        Expanded(
-                          flex: 3,
-                          child: Text(
-                            t.money(l.lineTotalMinor),
-                            textAlign: TextAlign.end,
-                            style: const TextStyle(fontSize: 24),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-              ],
-            ),
-          ),
+          if (fill) Expanded(child: ListView(children: lines)) else ...lines,
+          SizedBox(height: r.s(fill ? 0 : 12)),
           Container(
-            padding: const EdgeInsets.fromLTRB(24, 18, 24, 22),
+            padding: EdgeInsets.fromLTRB(pad, r.s(18), pad, r.s(22)),
             decoration: BoxDecoration(
               color: HomeColors.page,
               border: Border.all(color: Colors.grey.shade300),
               borderRadius: BorderRadius.circular(6),
             ),
-            child: Column(
-              children: [
-                sum('Subtotal', t.money(priced?.subtotalMinor ?? o.totalMinor)),
-                Divider(color: Colors.grey.shade400, height: 22),
-                if ((priced?.discountMinor ?? 0) > 0) sum('Discount', '-${t.money(priced!.discountMinor)}'),
-                if ((priced?.chargeMinor ?? 0) > 0) sum('Service charge', t.money(priced!.chargeMinor)),
-                sum('Subtotal before VAT', t.money((priced?.totalMinor ?? 0) - (priced?.taxMinor ?? 0))),
-                sum(
-                  'VAT ${inclusive ? 'inclusive' : 'exclusive'} (${(vat / 100).toStringAsFixed(vat % 100 == 0 ? 0 : 2)}%)',
-                  t.money(priced?.taxMinor ?? 0),
-                ),
-                const Divider(),
-                sum('Net Total', '${t.currency} ${t.money(priced?.totalMinor ?? o.totalMinor)}', bold: true),
-              ],
+            child: LayoutBuilder(
+              builder: (context, c) => Column(
+                children: [
+                  sum(c.maxWidth, 'Subtotal', t.money(priced?.subtotalMinor ?? o.totalMinor)),
+                  Divider(color: Colors.grey.shade400, height: r.s(22)),
+                  if ((priced?.discountMinor ?? 0) > 0)
+                    sum(c.maxWidth, 'Discount', '-${t.money(priced!.discountMinor)}'),
+                  if ((priced?.chargeMinor ?? 0) > 0) sum(c.maxWidth, 'Service charge', t.money(priced!.chargeMinor)),
+                  sum(c.maxWidth, 'Subtotal before VAT', t.money((priced?.totalMinor ?? 0) - (priced?.taxMinor ?? 0))),
+                  sum(
+                    c.maxWidth,
+                    'VAT ${inclusive ? 'inclusive' : 'exclusive'} (${(vat / 100).toStringAsFixed(vat % 100 == 0 ? 0 : 2)}%)',
+                    t.money(priced?.taxMinor ?? 0),
+                  ),
+                  const Divider(),
+                  sum(
+                    c.maxWidth,
+                    'Net Total',
+                    '${t.currency} ${t.money(priced?.totalMinor ?? o.totalMinor)}',
+                    strong: true,
+                  ),
+                ],
+              ),
             ),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: r.s(12)),
         ],
       ),
     );

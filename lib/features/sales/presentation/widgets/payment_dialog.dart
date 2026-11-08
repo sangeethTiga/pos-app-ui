@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/responsive/pos_popup.dart';
 import '../../../../core/terminal/terminal_context.dart';
 import '../../../../core/widgets/money_field.dart';
 import '../../../catalogue/data/catalogue_repository.dart';
@@ -25,8 +26,9 @@ Future<PaymentResult?> showPaymentDialog(
       nonCash[m] = TextEditingController();
     }
   }
-  return showDialog<PaymentResult>(
-    context: context,
+  return showPosPopup<PaymentResult>(
+    context,
+    maxWidth: 560,
     builder: (ctx) => StatefulBuilder(
       builder: (ctx, set) {
         final paidNonCash = nonCash.entries.fold(0, (s, e) => s + (parseMoney(e.value.text, t.currencyDecimals) ?? 0));
@@ -40,43 +42,43 @@ Future<PaymentResult?> showPaymentDialog(
           cashTendered: m.cashLike ? given : null,
         ));
 
-        return AlertDialog(
+        return posAlert(
+          ctx,
           title: Text('Pay ${t.currency} ${t.money(priced.totalMinor)}'),
-          content: SizedBox(
-            width: 420,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    for (final m in [?cash, ...nonCash.keys])
-                      FilledButton.tonal(
-                        key: Key('payAll-${m.kind}'),
-                        onPressed: () => payAll(m),
-                        child: Text('All ${m.name}'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              TileGrid(
+                minTileWidth: 180,
+                spacing: 8,
+                children: [
+                  for (final m in [?cash, ...nonCash.keys])
+                    FilledButton.tonal(
+                      key: Key('payAll-${m.kind}'),
+                      onPressed: () => payAll(m),
+                      child: Text(
+                        'All ${m.name}',
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                  ],
-                ),
-                const Divider(height: 24),
-                Text('Split payment', style: Theme.of(ctx).textTheme.titleSmall),
-                for (final e in nonCash.entries)
-                  MoneyField(controller: e.value, label: e.key.name, onChanged: (_) => set(() {})),
-                if (cash != null) ...[
-                  const SizedBox(height: 8),
-                  Text('${cash.name} due: ${t.money(cashDue)}'),
-                  MoneyField(controller: cashGiven, label: 'Cash given (for change)', onChanged: (_) => set(() {})),
-                  if (given != null && given >= cashDue) Text('Change: ${t.money(given - cashDue)}'),
+                    ),
                 ],
-                if (rest < 0)
-                  Text(
-                    'Card/wallet amounts exceed the bill.',
-                    style: TextStyle(color: Theme.of(ctx).colorScheme.error),
-                  ),
+              ),
+              const Divider(height: 24),
+              Text('Split payment', style: Theme.of(ctx).textTheme.titleSmall),
+              for (final e in nonCash.entries)
+                MoneyField(controller: e.value, label: e.key.name, onChanged: (_) => set(() {})),
+              if (cash != null) ...[
+                const SizedBox(height: 8),
+                Text('${cash.name} due: ${t.money(cashDue)}'),
+                MoneyField(controller: cashGiven, label: 'Cash given (for change)', onChanged: (_) => set(() {})),
+                if (given != null && given >= cashDue) Text('Change: ${t.money(given - cashDue)}'),
               ],
-            ),
+              if (rest < 0)
+                Text('Card/wallet amounts exceed the bill.', style: TextStyle(color: Theme.of(ctx).colorScheme.error)),
+            ],
           ),
           actions: [
             TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:bloc/bloc.dart';
 
 import '../../catalogue/data/catalogue_repository.dart';
@@ -44,7 +46,20 @@ class OrderDetailState {
 }
 
 class OrderDetailCubit extends Cubit<OrderDetailState> {
-  OrderDetailCubit(this.orderId, this.orders, this.checkout, this._catalogue) : super(const OrderDetailState());
+  OrderDetailCubit(this.orderId, this.orders, this.checkout, this._catalogue) : super(const OrderDetailState()) {
+    // Another terminal changed an order (maybe this one): show its current state.
+    _remote = orders.remoteChanges.listen((_) {
+      if (!isClosed && !state.busy) load();
+    });
+  }
+
+  late final StreamSubscription<void> _remote;
+
+  @override
+  Future<void> close() async {
+    await _remote.cancel();
+    return super.close();
+  }
 
   final String orderId;
   final OrderManager orders;

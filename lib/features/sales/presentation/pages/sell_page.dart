@@ -1037,12 +1037,11 @@ class _CartPanel extends StatelessWidget {
     final vatRate = cart.lines.isEmpty ? 0 : cart.lines.first.taxRateBp;
     final inclusive = cart.lines.isEmpty || cart.lines.first.priceIncludesTax;
     final editing = cart.existingOrderId != null;
-    final showDelivery = editing || ch == Channel.homeDelivery || ch == Channel.partner;
     final service = (priced?.charges ?? const <PricedCharge>[])
         .where((c) => c.code == 'SERVICE')
         .fold(0, (sum, c) => sum + c.net + c.tax);
     return Container(
-      color: editing ? HomeColors.page : Colors.white,
+      color: HomeColors.page,
       padding: const EdgeInsets.fromLTRB(8, 10, 8, 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1150,8 +1149,7 @@ class _CartPanel extends StatelessWidget {
                 line: cart.lines[i],
                 total: priced?.lines[i].lineTotal,
                 t: t,
-                editing: editing,
-                selected: editing && cart.lines[i].key == state.selectedKey,
+                selected: cart.lines[i].key == state.selectedKey,
                 onTap: () => onEditLine(cart.lines[i]),
                 onQty: (d) => onQty(cart.lines[i].key, d),
               ),
@@ -1167,7 +1165,7 @@ class _CartPanel extends StatelessWidget {
             child: Column(
               children: [
                 _sum('Subtotal', t.money(priced?.subtotalMinor ?? 0)),
-                if (showDelivery) _delivery(cart.deliveryChargeMinor),
+                _delivery(cart.deliveryChargeMinor),
                 Divider(color: Colors.grey.shade400, height: 20),
                 if ((priced?.discountMinor ?? 0) > 0)
                   _sum(
@@ -1350,7 +1348,6 @@ class _LineRow extends StatelessWidget {
     required this.t,
     required this.onTap,
     required this.onQty,
-    this.editing = false,
     this.selected = false,
   });
   final CartLine line;
@@ -1359,16 +1356,15 @@ class _LineRow extends StatelessWidget {
   final VoidCallback onTap;
   final ValueChanged<int> onQty;
 
-  /// Edit Order layout: qty and price columns with stacked + / - on the right.
-  final bool editing;
   final bool selected;
 
   String get _qty => line.qtyMilli % 1000 == 0 ? '${line.qtyMilli ~/ 1000}' : (line.qtyMilli / 1000).toStringAsFixed(3);
 
   @override
-  Widget build(BuildContext context) => editing ? _editRow() : _row();
+  Widget build(BuildContext context) => _card();
 
-  Widget _editRow() {
+  /// White card: name and unit price, qty, line total, stacked + / - on the right; blue when selected.
+  Widget _card() {
     final fg = selected ? Colors.white : Colors.black87;
     return InkWell(
       key: Key('line-${line.key}'),
@@ -1436,68 +1432,6 @@ class _LineRow extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(10),
       child: SizedBox(width: 84, height: 50, child: Icon(icon, size: 26, color: Colors.black)),
-    ),
-  );
-
-  Widget _row() => InkWell(
-    key: Key('line-${line.key}'),
-    onTap: onTap,
-    child: Container(
-      margin: const EdgeInsets.only(top: 6),
-      padding: const EdgeInsets.fromLTRB(18, 10, 18, 10),
-      decoration: BoxDecoration(color: HomeColors.page, borderRadius: BorderRadius.circular(4)),
-      child: Row(
-        children: [
-          Expanded(
-            flex: 5,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(line.name, style: const TextStyle(fontSize: 21)),
-                Text(t.money(line.unitPriceMinor), style: const TextStyle(fontSize: 17, color: Colors.black54)),
-                if (line.note != null)
-                  Text('* ${line.note}', style: const TextStyle(fontSize: 13, color: Colors.deepOrange)),
-              ],
-            ),
-          ),
-          Expanded(
-            flex: 3,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _qtyButton(Icons.remove, () => onQty(-1), 'minus-${line.key}'),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 6),
-                  child: Text(_qty, style: const TextStyle(fontSize: 18)),
-                ),
-                _qtyButton(Icons.add, () => onQty(1), 'plus-${line.key}'),
-              ],
-            ),
-          ),
-          Expanded(
-            flex: 2,
-            child: Text(
-              t.money(total ?? line.unitPriceMinor * line.qtyMilli ~/ 1000),
-              textAlign: TextAlign.end,
-              style: const TextStyle(fontSize: 18),
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
-
-  Widget _qtyButton(IconData icon, VoidCallback onTap, String key) => InkWell(
-    key: Key(key),
-    onTap: onTap,
-    customBorder: const CircleBorder(),
-    child: Container(
-      padding: const EdgeInsets.all(3),
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(color: HomeColors.navy),
-      ),
-      child: Icon(icon, size: 16, color: HomeColors.navy),
     ),
   );
 }

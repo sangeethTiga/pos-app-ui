@@ -56,3 +56,9 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+dependency_overrides:
+  # 2.3.0 with a fix for the macOS 26+ SDK (see third_party/flutter_thermal_printer/PATCHED.md).
+  # Remove when pub.dev has a fixed release.
+  flutter_thermal_printer:
+    path: third_party/flutter_thermal_printer

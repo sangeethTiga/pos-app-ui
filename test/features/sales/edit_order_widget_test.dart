@@ -113,9 +113,7 @@ void main() {
     final shift = (await tester.runAsync(() => store.all('shift')))!.single;
     expect([shift.data['name'], shift.data['opening_float_minor']], ['Morning Shift', 10000]);
 
-    // place 2 x Fresh lime as takeaway
-    await tester.tap(find.byKey(const Key('product-p1')));
-    await tester.pump();
+    // place 1 x Fresh lime as takeaway
     await tester.tap(find.byKey(const Key('product-p1')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('chTakeaway')));
@@ -139,7 +137,7 @@ void main() {
     expect(find.text('Quick Update Order'), findsOneWidget);
     final lineId = (await tester.runAsync(() => store.all('order_line')))!.single.id;
 
-    // one more Fresh lime on the same line, a new Mint tea and a new Fresh lime (each tap is its own
+    // + on the Fresh lime line (2), a new Mint tea and a new Fresh lime (each tap is its own
     // line on top while editing), AED 5 delivery charge, Update Order
     await tester.tap(find.byKey(Key('plus-$lineId')));
     await tester.pumpAndSettle();
@@ -147,14 +145,14 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('product-p1')));
     await tester.pumpAndSettle();
-    expect(find.text('items(5)'), findsOneWidget);
+    expect(find.text('items(4)'), findsOneWidget);
     expect(find.text('Delivery charge'), findsOneWidget);
     await tester.tap(find.byKey(const Key('deliveryChargeEdit')));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).last, '5');
     await tester.tap(find.text('OK'));
     await tester.pumpAndSettle();
-    expect(find.text('AED 42.00'), findsOneWidget); // 3 x 8 + 5 + 8 + 5 delivery
+    expect(find.text('AED 34.00'), findsOneWidget); // 2 x 8 + 5 + 8 + 5 delivery
     await tester.tap(find.byKey(const Key('placeOrder')));
     await settle();
     expect(router0().state.uri.toString(), '/orders?channel=TAKEAWAY');
@@ -162,9 +160,9 @@ void main() {
     final lines = (await tester.runAsync(() => store.all('order_line')))!;
     expect(
       [for (final l in lines) (l.data['name_snapshot'], l.data['qty_milli'])]..sort((a, b) => '$a'.compareTo('$b')),
-      [('Fresh lime', 1000), ('Fresh lime', 3000), ('Mint tea', 1000)],
+      [('Fresh lime', 1000), ('Fresh lime', 2000), ('Mint tea', 1000)],
     );
-    expect((await tester.runAsync(() => store.find('orders', order.id)))!.data['total_minor'], 4200);
+    expect((await tester.runAsync(() => store.find('orders', order.id)))!.data['total_minor'], 3400);
     final reopened = await tester.runAsync(() => sl<CheckoutService>().loadOrderCart(order.id));
     expect(reopened!.deliveryChargeMinor, 500);
     final kots = [for (final k in (await tester.runAsync(() => store.all('kot')))!) k.data['kind']];

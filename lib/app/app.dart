@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../core/di/injection.dart';
 import '../features/device_setup/presentation/bloc/device_setup_bloc.dart';
+import '../features/terminal/terminal_cubit.dart';
 import 'router.dart';
 import 'theme.dart';
 
@@ -26,8 +27,11 @@ class _AppState extends State<App> {
   @override
   Widget build(BuildContext context) {
     // App-wide blocs: device pairing state is needed by splash and setup screens.
-    return BlocProvider(
-      create: (_) => sl<DeviceSetupBloc>(),
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(create: (_) => sl<DeviceSetupBloc>()),
+        BlocProvider.value(value: sl<TerminalCubit>()),
+      ],
       child: MaterialApp.router(
         title: 'POS',
         debugShowCheckedModeBanner: false,

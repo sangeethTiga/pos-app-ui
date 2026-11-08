@@ -43,7 +43,7 @@ void main() {
   const config = AppConfig(apiBaseUrl: 'http://pos.test/api/v1', appVersion: '1.2.3');
   final fixture = File('test/fixtures/register_response.json').readAsStringSync();
 
-  DeviceRepositoryImpl repo(_Adapter adapter, MemorySecureStore store) {
+  DeviceRepositoryImpl repo(_Adapter adapter, SecureStore store) {
     final dio = createDio(config)..httpClientAdapter = adapter;
     return DeviceRepositoryImpl(DeviceRemoteDataSource(dio), DeviceLocalDataSource(store), config, platform: 'android');
   }
@@ -94,9 +94,23 @@ void main() {
     expect(await r.currentSession(), isNull);
   });
 
+  test('server paired but secure storage fails: clear failure, not a stuck screen', () async {
+    final r = repo(_Adapter(201, fixture), _FailingStore());
+    final result = await r.register(storeCode: 'ST-0007', registrationCode: '483920', deviceName: 'POS-1');
+    final failure = (result as Err).failure;
+    expect(failure, isA<UnexpectedFailure>());
+    expect(failure.userMessage, contains('Ask for a new code'));
+  });
+
   test('corrupt stored session is discarded', () async {
     final store = MemorySecureStore()..values['device_session_v1'] = '{not json';
     expect(await repo(_Adapter(200, '{}'), store).currentSession(), isNull);
     expect(store.values, isEmpty);
   });
+}
+
+class _FailingStore extends MemorySecureStore {
+  @override
+  Future<void> write(String key, String value) async =>
+      throw Exception('-34018 A required entitlement is not present.');
 }

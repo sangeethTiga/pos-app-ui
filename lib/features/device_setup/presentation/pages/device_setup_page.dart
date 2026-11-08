@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/routes.dart';
 import '../../../../core/error/failure.dart';
+import '../../../terminal/terminal_cubit.dart';
 import '../bloc/device_setup_bloc.dart';
 
 /// Pair this terminal: store code + one-time registration code from the admin panel.
@@ -45,7 +46,10 @@ class _DeviceSetupPageState extends State<DeviceSetupPage> {
   Widget build(BuildContext context) {
     return BlocConsumer<DeviceSetupBloc, DeviceSetupState>(
       listener: (context, state) {
-        if (state is DeviceSetupPaired) context.go(Routes.home);
+        if (state is DeviceSetupPaired) {
+          context.read<TerminalCubit>().start(state.session);
+          context.go(Routes.lock);
+        }
       },
       builder: (context, state) {
         final busy = state is DeviceSetupSubmitting;

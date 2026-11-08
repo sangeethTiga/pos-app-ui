@@ -36,10 +36,22 @@ Rules:
 
 ## Features
 
-| Feature | State | What it does |
-|---|---|---|
-| `device_setup` | `DeviceSetupBloc` | Splash decides paired/unpaired; pairing form calls `POST /devices/register`, stores credentials |
-| `home` | `HomeCubit` | Shows the paired store/terminal; signed `GET /devices/me` proves credentials and signature |
+| Feature | State | What it does | Status |
+|---|---|---|---|
+| `device_setup` | `DeviceSetupBloc` | Pairing (`POST /devices/register`), credentials in secure storage, token refresh | done, e2e |
+| `sync` | `SyncEngine`, `SyncScheduler`, `RealtimeClient` | Gateway claim/heartbeat, push (ACK only by `accepted`), pull, CONTINUOUS / MANUAL run / SCHEDULED occurrence + catch-up, Reverb notifications | done, e2e |
+| `staff` | `PinLoginCubit` | Cashier PIN login offline (Argon2id/bcrypt from the server, cached per terminal), lockout after 5 wrong PINs | done |
+| `shift` | `ShiftService` | Business day, open shift with float, cash in / paid out, blind close (expected vs counted), day close | done, e2e |
+| `sales` | `SellCubit`, `CheckoutService`, `PricingEngine` | Catalogue grid, cart, takeaway/dine-in, discount, split payment, cash rounding; one atomic local transaction per sale (order, lines, payments, stock, balanced ledger, KOT) | done, e2e |
+| `printing` | `PrinterService`, `TicketFormatter` | ESC/POS receipt + KOT to LAN printers (TCP 9100), cash drawer kick | done (network printers only) |
+| `home` | `HomeCubit` | Device status (signed `GET /devices/me`) | done |
+| LAN sync | — | Terminal-to-terminal replication and gateway election | **not built** |
+
+Core pieces: `core/database` (Drift: `records` replica, `change_log`, `key_values`), `core/sync`
+(`LocalStore` with the backend's merge rules, `Hlc`), `core/security/pin_hash.dart`,
+`core/terminal/terminal_context.dart` (store time zone, business date, money format).
+
+Flow: splash -> pairing (once) -> PIN login -> open shift -> sell -> pay -> receipt/KOT -> auto upload.
 
 ## Commands
 
@@ -55,14 +67,20 @@ flutter run -d android --dart-define=API_BASE_URL=http://10.0.2.2:8000/api/v1   
 
 Generated `*.g.dart` / `*.freezed.dart` files are committed so the app builds right after a clone.
 
-### End-to-end test against a real backend
+### End-to-end tests against a real backend
 
-Create a store and a registration code in the backend (admin API), then:
+Backend: `php artisan db:seed --class=DemoSeeder`, then a fresh code per test with
+`php artisan pos:registration-code DXB-01` (DXB-01 must be in CONTINUOUS mode for the sale test).
 
 ```bash
-E2E_BASE_URL=http://localhost:8000/api/v1 E2E_STORE_CODE=ST-0007 E2E_REG_CODE=<code> flutter test --tags e2e
+export E2E_BASE_URL=http://localhost:8000/api/v1
+E2E_STORE_CODE=DXB-01 E2E_REG_CODE=<code> flutter test test/e2e/pairing_e2e_test.dart
+E2E_STORE_CODE=DXB-01 E2E_REG_CODE=<code> E2E_PIN=1234 flutter test test/e2e/sale_e2e_test.dart
+E2E_STORE_CODE=DXB-02 E2E_REG_CODE=<code> E2E_OWNER_EMAIL=owner@alnoor.test E2E_OWNER_PASSWORD=password \
+  flutter test test/e2e/scheduled_mode_e2e_test.dart
 ```
-It pairs a terminal for real and makes a signed `GET /devices/me`.
+The sale test pairs, downloads the catalogue and users, checks a real PIN, opens a shift, sells with
+card + cash, closes shift and day, and asserts the backend applied every transaction.
 
 ## Adding a feature
 

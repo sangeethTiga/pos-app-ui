@@ -9,7 +9,7 @@ import '../models/device_registration_model.dart';
 /// Also the [DeviceCredentialsProvider] for the signing interceptor. It must not be the repository:
 /// repository -> remote data source -> Dio -> interceptor -> repository would be a dependency cycle.
 class DeviceLocalDataSource implements DeviceCredentialsProvider {
-  const DeviceLocalDataSource(this._store);
+  DeviceLocalDataSource(this._store);
 
   static const _key = 'device_session_v1';
 
@@ -34,5 +34,32 @@ class DeviceLocalDataSource implements DeviceCredentialsProvider {
   Future<({String accessToken, String signingSecret})?> deviceCredentials() async {
     final m = await read();
     return m == null ? null : (accessToken: m.accessToken, signingSecret: m.signingSecret);
+  }
+
+  @override
+  Future<bool> accessTokenExpiring() async {
+    final m = await read();
+    return m != null && DateTime.now().toUtc().isAfter(m.accessTokenExpiresAt.subtract(const Duration(minutes: 1)));
+  }
+
+  /// Set by DI: the refresh call itself must not go through the signing interceptor.
+  Future<Map<String, dynamic>?> Function(DeviceRegistrationModel current)? refreshCall;
+
+  @override
+  Future<bool> refreshTokens() async {
+    final current = await read();
+    final call = refreshCall;
+    if (current == null || call == null) return false;
+    final tokens = await call(current);
+    if (tokens == null) return false;
+    await save(
+      current.copyWith(
+        accessToken: tokens['access_token'] as String,
+        accessTokenExpiresAt: DateTime.parse(tokens['access_token_expires_at'] as String),
+        refreshToken: tokens['refresh_token'] as String,
+        refreshTokenExpiresAt: DateTime.parse(tokens['refresh_token_expires_at'] as String),
+      ),
+    );
+    return true;
   }
 }

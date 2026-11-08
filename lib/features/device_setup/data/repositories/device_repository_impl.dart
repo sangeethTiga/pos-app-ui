@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../../../core/config/app_config.dart';
+import '../../../../core/error/failure.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/utils/result.dart';
 import '../../domain/entities/device_session.dart';
@@ -35,7 +36,12 @@ class DeviceRepositoryImpl implements DeviceRepository {
           appVersion: _config.appVersion,
         ),
       );
-      await _local.save(model);
+      try {
+        await _local.save(model);
+      } on Object catch (e) {
+        // Paired on the server but the credentials could not be stored: the code is used up.
+        return Err(Failure.unexpected(message: 'Could not save the terminal credentials ($e). Ask for a new code.'));
+      }
       return Success(model.toEntity());
     } on DioException catch (e) {
       return Err(mapDioError(e));

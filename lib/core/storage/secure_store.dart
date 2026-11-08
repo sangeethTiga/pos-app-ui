@@ -9,7 +9,13 @@ abstract interface class SecureStore {
 
 /// Android Keystore / Windows DPAPI / Keychain backed storage. Never SQLite, never logs.
 class FlutterSecureStore implements SecureStore {
-  FlutterSecureStore([FlutterSecureStorage? storage]) : _storage = storage ?? const FlutterSecureStorage();
+  FlutterSecureStore([FlutterSecureStorage? storage])
+    : _storage =
+          storage ??
+          // macOS: the data-protection keychain needs a signed keychain-access-group (Apple team id);
+          // debug and ad-hoc builds get -34018 "A required entitlement is not present". The login
+          // keychain works without it and is still encrypted and per app.
+          const FlutterSecureStorage(mOptions: MacOsOptions(usesDataProtectionKeychain: false));
 
   final FlutterSecureStorage _storage;
 

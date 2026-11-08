@@ -30,6 +30,6 @@ extension FailureMessage on Failure {
     NetworkFailure() => 'Cannot reach the server. Check the network and try again.',
     ServerFailure(:final message) => message,
     UnauthorizedFailure(:final message) => message,
-    UnexpectedFailure() => 'Something went wrong. Please try again.',
+    UnexpectedFailure(:final message) => message,
   };
 }

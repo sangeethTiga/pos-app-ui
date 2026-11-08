@@ -11,9 +11,12 @@ import '../../features/device_setup/domain/usecases/preview_registration.dart';
 import '../../features/device_setup/domain/usecases/register_device.dart';
 import '../../features/device_setup/presentation/bloc/device_setup_bloc.dart';
 import '../../features/home/presentation/cubit/home_cubit.dart';
+import '../../features/orders/presentation/order_detail_cubit.dart';
+import '../../features/orders/presentation/orders_cubit.dart';
 import '../../features/printing/data/printer_service.dart';
 import '../../features/sales/data/home_repository.dart';
 import '../../features/sales/domain/checkout_service.dart';
+import '../../features/sales/domain/order_manager.dart';
 import '../../features/sales/domain/order_service.dart';
 import '../../features/sales/presentation/cubit/sell_cubit.dart';
 import '../../features/shift/domain/shift_service.dart';
@@ -123,6 +126,19 @@ Future<void> configureDependencies({AppConfig? config, SecureStore? secureStore,
       ),
     )
     ..registerLazySingleton(() => HomeRepository(sl<LocalStore>(), sl<StaffRepository>(), _afterCommit))
+    ..registerLazySingleton(
+      () => OrderManager(
+        sl<LocalStore>(),
+        sl<TerminalContextHolder>(),
+        sl<CheckoutService>(),
+        sl<StaffRepository>(),
+        _afterCommit,
+      ),
+    )
+    ..registerFactory(() => OrdersCubit(sl<OrderManager>(), sl<CatalogueRepository>()))
+    ..registerFactoryParam<OrderDetailCubit, String, void>(
+      (id, _) => OrderDetailCubit(id, sl<OrderManager>(), sl<CheckoutService>(), sl<CatalogueRepository>()),
+    )
     ..registerFactory(
       () => SellCubit(
         sl<CatalogueRepository>(),
@@ -131,6 +147,7 @@ Future<void> configureDependencies({AppConfig? config, SecureStore? secureStore,
         sl<TerminalContextHolder>(),
         sl<OrderService>(),
         sl<HomeRepository>(),
+        sl<OrderManager>(),
       ),
     )
     ..registerLazySingleton(() => PrinterService(sl<LocalStore>()));

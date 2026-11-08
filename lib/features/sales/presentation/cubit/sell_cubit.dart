@@ -8,6 +8,7 @@ import '../../../shift/domain/shift_service.dart';
 import '../../data/home_repository.dart';
 import '../../domain/cart.dart';
 import '../../domain/checkout_service.dart';
+import '../../domain/order_manager.dart';
 import '../../domain/order_service.dart';
 import '../../domain/pricing_engine.dart';
 
@@ -61,7 +62,7 @@ abstract class SellState with _$SellState {
 }
 
 class SellCubit extends Cubit<SellState> {
-  SellCubit(this._catalogue, this._checkout, this._shifts, this._ctx, this._orders, this._home)
+  SellCubit(this._catalogue, this._checkout, this._shifts, this._ctx, this._orders, this._home, this._manager)
     : super(const SellState());
 
   final CatalogueRepository _catalogue;
@@ -70,11 +71,14 @@ class SellCubit extends Cubit<SellState> {
   final TerminalContextHolder _ctx;
   final OrderService _orders;
   final HomeRepository _home;
+  final OrderManager _manager;
 
   bool get isCaptainDevice => _ctx.ctx.isCaptain;
 
   Future<void> load() async {
     final categories = await _catalogue.categories();
+    final intent = _manager.homeIntent;
+    _manager.homeIntent = null;
     emit(
       state.copyWith(
         loading: false,
@@ -88,6 +92,10 @@ class SellCubit extends Cubit<SellState> {
         categoryId: state.categoryId ?? fastMovingId,
       ),
     );
+    if (intent != null) {
+      _setCart(intent);
+      emit(state.copyWith(info: 'Adding items to ${intent.existingOrderNo}'));
+    }
   }
 
   void category(String? id) => emit(state.copyWith(categoryId: id, page: 0, search: ''));

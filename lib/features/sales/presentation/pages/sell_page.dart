@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -147,7 +149,10 @@ class _SellPageState extends State<SellPage> {
       onDiscount: () => _discount(s, cubit),
       onOpenFood: () => _openFood(cubit),
       onNewOrder: () => _newOrder(s, cubit),
-      onOrders: () => _toast('Orders Dashboard is coming in the next update.'),
+      onOrders: () async {
+        await context.push(Routes.orders);
+        if (mounted) cubit.load();
+      },
     );
     final cart = _CartPanel(
       state: s,
@@ -334,6 +339,13 @@ class _SellPageState extends State<SellPage> {
     final placed = await cubit.place(user.id);
     if (placed == null || !mounted) return;
     context.read<TerminalCubit>().refreshPending();
+    // Print the KOT in the background so the dashboard opens at once.
+    unawaited(_printKot(placed));
+    await context.push(Routes.ordersFor(placed.cart.channel));
+    if (mounted) cubit.load();
+  }
+
+  Future<void> _printKot(PlacedOrder placed) async {
     final printer = sl<PrinterService>();
     final cfg = await printer.settings();
     if (cfg.kitchenHost == null) return;

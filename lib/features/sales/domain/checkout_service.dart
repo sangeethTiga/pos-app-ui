@@ -203,6 +203,196 @@ class CheckoutService {
       );
     }
 
+    final (paymentChanges, changeDue) = _settlementChanges(
+      orderId: orderId,
+      lines: cart.lines,
+      priced: priced,
+      settlement: settlement,
+      shiftId: shift.id,
+      businessDate: businessDate,
+      userId: userId,
+      cashTenderedMinor: cashTenderedMinor,
+    );
+    changes.addAll(paymentChanges);
+
+    changes.add(
+      LocalChange.insert('order_event', {
+        'order_id': orderId,
+        'type': 'SETTLED',
+        'user_id': userId,
+        'device_code': ctx.deviceCode,
+        'occurred_at': nowIso,
+      }),
+    );
+    if (sendKot) {
+      changes.add(
+        LocalChange.insert('kot', {
+          'order_id': orderId,
+          'kind': 'NEW',
+          'token_no': tokenNo,
+          'lines': kotLines(cart.lines, cart.kitchenNote),
+          'device_code': ctx.deviceCode,
+        }),
+      );
+    }
+
+    await _store.commit(changes, userId: userId);
+    _onCommit?.call();
+    return CompletedSale(
+      orderId: orderId,
+      orderNo: orderNo,
+      tokenNo: tokenNo,
+      businessDate: businessDate,
+      cart: cart,
+      priced: priced,
+      settlement: settlement,
+      changeDueMinor: changeDue,
+      cashierName: cashierName,
+      settledAt: now,
+    );
+  }
+
+  /// The running order as a cart: active lines (cancelled ones left out), order type, table,
+  /// partner and the order discount. Stock tracking comes from the product.
+  Future<Cart> loadOrderCart(String orderId) async {
+    final order = await _store.find('orders', orderId) ?? (throw const SaleException('Order not found.'));
+    final tracked = {
+      for (final p in await _store.all('product'))
+        if (p.data['track_stock'] == true || p.data['track_stock'] == 1) p.id,
+    };
+    final lineRows = [
+      for (final r in await _store.all('order_line'))
+        if (r.data['order_id'] == orderId && r.data['kot_status'] != 'CANCELLED') r,
+    ];
+    var discountBp = 0;
+    for (final d in await _store.all('order_discount')) {
+      if (d.data['order_id'] == orderId && d.data['kind'] == 'PERCENT') {
+        discountBp = (d.data['value_bp'] as num?)?.toInt() ?? discountBp;
+      }
+    }
+    final o = order.data;
+    return Cart(
+      lines: [
+        for (final r in lineRows)
+          CartLine(
+            key: r.id,
+            productId: r.data['product_id'] as String?,
+            name: r.data['name_snapshot'] as String? ?? '',
+            unitPriceMinor: (r.data['unit_price_minor'] as num).toInt(),
+            qtyMilli: (r.data['qty_milli'] as num).toInt(),
+            taxRateBp: (r.data['tax_rate_bp'] as num?)?.toInt() ?? 0,
+            priceIncludesTax: r.data['price_includes_tax'] as bool? ?? true,
+            trackStock: tracked.contains(r.data['product_id']),
+            note: r.data['note'] as String?,
+          ),
+      ],
+      orderType: o['order_type'] as String? ?? 'TAKEAWAY',
+      tableId: o['table_id'] as String?,
+      guests: (o['guests'] as num?)?.toInt(),
+      existingOrderId: orderId,
+      existingOrderNo: o['order_no'] as String?,
+      captainId: o['captain_id'] as String?,
+      customerId: o['customer_id'] as String?,
+      carhop: o['carhop'] == true || o['carhop'] == 1,
+      carNo: o['car_no'] as String?,
+      deliveryPartnerId: o['delivery_partner_id'] as String?,
+      partnerOrderNo: o['partner_order_no'] as String?,
+      kitchenNote: o['note'] as String?,
+      discountBp: discountBp,
+    );
+  }
+
+  /// Settle a placed (OPEN or BILLED) order: payments, stock, ledger, status SETTLED.
+  Future<CompletedSale> settleOrder({
+    required String orderId,
+    required SalesSettings settings,
+    required List<({PaymentMethod method, int? amountMinor})> tenders,
+    required String userId,
+    required String cashierName,
+    int? cashTenderedMinor,
+  }) async {
+    final order = await _store.find('orders', orderId) ?? (throw const SaleException('Order not found.'));
+    final status = order.data['status'];
+    if (status != 'OPEN' && status != 'BILLED') throw const SaleException('This order is already closed.');
+    final shift = await _shifts.openShift() ?? (throw const SaleException('Open a shift before taking payment.'));
+    final cart = await loadOrderCart(orderId);
+    if (cart.isEmpty) throw const SaleException('The order has no items.');
+    final businessDate = order.data['business_date'] as String? ?? _ctx.ctx.businessDate();
+    final priced = price(cart, settings);
+    final Settlement settlement;
+    try {
+      settlement = _engine.settle(priced, [
+        for (final t in tenders)
+          Tender(t.method.kind, t.amountMinor, cashLike: t.method.cashLike, paymentMethodId: t.method.id),
+      ], settings.cashRoundingIncrementMinor);
+    } on PricingException catch (e) {
+      throw SaleException(e.message);
+    }
+    if (settlement.paidMinor < priced.totalMinor + settlement.roundingMinor) {
+      throw const SaleException('The payment does not cover the bill.');
+    }
+    final now = DateTime.now().toUtc();
+    final (paymentChanges, changeDue) = _settlementChanges(
+      orderId: orderId,
+      lines: cart.lines,
+      priced: priced,
+      settlement: settlement,
+      shiftId: shift.id,
+      businessDate: businessDate,
+      userId: userId,
+      cashTenderedMinor: cashTenderedMinor,
+    );
+    final changes = <LocalChange>[
+      LocalChange.update('orders', orderId, {
+        'status': 'SETTLED',
+        'payment_status': 'PAID',
+        'subtotal_minor': priced.subtotalMinor,
+        'discount_minor': priced.discountMinor,
+        'charge_minor': priced.chargeMinor,
+        'tax_minor': priced.taxMinor,
+        'rounding_minor': settlement.roundingMinor,
+        'total_minor': priced.totalMinor,
+        'paid_minor': settlement.paidMinor,
+        'settled_by': userId,
+        'settled_at': now.toIso8601String(),
+      }),
+      ...paymentChanges,
+      LocalChange.insert('order_event', {
+        'order_id': orderId,
+        'type': 'SETTLED',
+        'user_id': userId,
+        'device_code': _ctx.ctx.deviceCode,
+        'occurred_at': now.toIso8601String(),
+      }),
+    ];
+    await _store.commit(changes, userId: userId);
+    _onCommit?.call();
+    return CompletedSale(
+      orderId: orderId,
+      orderNo: order.data['order_no'] as String? ?? '',
+      tokenNo: order.data['token_no'] as String? ?? '',
+      businessDate: businessDate,
+      cart: cart,
+      priced: priced,
+      settlement: settlement,
+      changeDueMinor: changeDue,
+      cashierName: cashierName,
+      settledAt: now,
+    );
+  }
+
+  /// Payments, SALE stock movements and the balanced ledger of a settlement (SRS 10.8).
+  (List<LocalChange>, int) _settlementChanges({
+    required String orderId,
+    required List<CartLine> lines,
+    required PricedOrder priced,
+    required Settlement settlement,
+    required String shiftId,
+    required String businessDate,
+    required String userId,
+    int? cashTenderedMinor,
+  }) {
+    final changes = <LocalChange>[];
     var changeDue = 0;
     for (final t in settlement.tenders) {
       final isCashRest = t.tender.cashLike && t.dueMinor != null;
@@ -220,15 +410,15 @@ class CheckoutService {
           'tendered_minor': ?tendered,
           'change_minor': ?(tendered == null ? null : changeDue),
           'rounding_minor': isCashRest ? settlement.roundingMinor : 0,
-          'shift_id': shift.id,
+          'shift_id': shiftId,
           'received_by': userId,
-          'device_code': ctx.deviceCode,
+          'device_code': _ctx.ctx.deviceCode,
           'business_date': businessDate,
         }),
       );
     }
 
-    for (final l in cart.lines.where((l) => l.trackStock)) {
+    for (final l in lines.where((l) => l.trackStock && l.productId != null)) {
       changes.add(
         LocalChange.insert('stock_movement', {
           'product_id': l.productId,
@@ -274,40 +464,6 @@ class CheckoutService {
       );
     }
 
-    changes.add(
-      LocalChange.insert('order_event', {
-        'order_id': orderId,
-        'type': 'SETTLED',
-        'user_id': userId,
-        'device_code': ctx.deviceCode,
-        'occurred_at': nowIso,
-      }),
-    );
-    if (sendKot) {
-      changes.add(
-        LocalChange.insert('kot', {
-          'order_id': orderId,
-          'kind': 'NEW',
-          'token_no': tokenNo,
-          'lines': kotLines(cart.lines, cart.kitchenNote),
-          'device_code': ctx.deviceCode,
-        }),
-      );
-    }
-
-    await _store.commit(changes, userId: userId);
-    _onCommit?.call();
-    return CompletedSale(
-      orderId: orderId,
-      orderNo: orderNo,
-      tokenNo: tokenNo,
-      businessDate: businessDate,
-      cart: cart,
-      priced: priced,
-      settlement: settlement,
-      changeDueMinor: changeDue,
-      cashierName: cashierName,
-      settledAt: now,
-    );
+    return (changes, changeDue);
   }
 }

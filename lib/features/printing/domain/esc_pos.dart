@@ -12,9 +12,16 @@ class EscPos {
 
   Uint8List get bytes => _b.toBytes();
 
+  final _preview = StringBuffer();
+  String _align = 'left';
+
+  /// Plain-text copy of the ticket (on-screen preview when no printer is set up).
+  String get preview => _preview.toString();
+
   void _raw(List<int> b) => _b.add(b);
 
   EscPos align(String a) {
+    _align = a;
     _raw([0x1B, 0x61, a == 'center' ? 1 : (a == 'right' ? 2 : 0)]);
     return this;
   }
@@ -33,6 +40,10 @@ class EscPos {
   EscPos text(String s) {
     _raw(latin1.encode(s.runes.map((r) => r < 256 ? String.fromCharCode(r) : '?').join()));
     _raw([0x0A]);
+    final pad = s.length >= width
+        ? 0
+        : (_align == 'center' ? (width - s.length) ~/ 2 : (_align == 'right' ? width - s.length : 0));
+    _preview.writeln(' ' * pad + s);
     return this;
   }
 

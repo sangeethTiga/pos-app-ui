@@ -7,6 +7,10 @@ import '../features/device_setup/presentation/pages/device_setup_page.dart';
 import '../features/device_setup/presentation/pages/splash_page.dart';
 import '../features/home/presentation/cubit/home_cubit.dart';
 import '../features/home/presentation/pages/home_page.dart';
+import '../features/orders/presentation/order_detail_cubit.dart';
+import '../features/orders/presentation/order_detail_page.dart';
+import '../features/orders/presentation/orders_cubit.dart';
+import '../features/orders/presentation/orders_page.dart';
 import '../features/printing/presentation/printer_settings_page.dart';
 import '../features/sales/presentation/cubit/sell_cubit.dart';
 import '../features/sales/presentation/pages/sell_page.dart';
@@ -42,5 +46,23 @@ GoRouter createRouter({String initialLocation = Routes.splash}) => GoRouter(
       builder: (_, _) => BlocProvider(create: (_) => sl<SellCubit>()..load(), child: const SellPage()),
     ),
     GoRoute(path: Routes.printers, builder: (_, _) => const PrinterSettingsPage()),
+    GoRoute(
+      path: Routes.orders,
+      builder: (_, state) => BlocProvider(
+        create: (_) => sl<OrdersCubit>()
+          ..open(state.uri.queryParameters['channel'])
+          ..load(),
+        child: const OrdersPage(),
+      ),
+      routes: [
+        GoRoute(
+          path: ':id',
+          builder: (_, state) => BlocProvider(
+            create: (_) => sl<OrderDetailCubit>(param1: state.pathParameters['id']!)..load(),
+            child: const OrderDetailPage(),
+          ),
+        ),
+      ],
+    ),
   ],
 );

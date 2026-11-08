@@ -1,6 +1,7 @@
 import '../../../core/terminal/terminal_context.dart';
 import '../../sales/domain/cart.dart';
 import '../../sales/domain/checkout_service.dart';
+import '../../sales/domain/pricing_engine.dart';
 import 'esc_pos.dart';
 
 /// Customer receipt and kitchen ticket (KOT) layouts.
@@ -116,6 +117,63 @@ class TicketFormatter {
     }
     return p
       ..line()
+      ..feed(3)
+      ..cut();
+  }
+
+  /// Guest bill for a running order (before payment).
+  EscPos bill({
+    required String orderNo,
+    required String tokenNo,
+    required Cart cart,
+    required PricedOrder priced,
+    String header = '',
+    String footer = '',
+  }) {
+    final p = EscPos(width: width)
+      ..align('center')
+      ..bold(true)
+      ..big(true)
+      ..text(ctx.storeName)
+      ..big(false)
+      ..bold(false);
+    for (final h in header.split('\n').where((l) => l.trim().isNotEmpty)) {
+      p.text(h);
+    }
+    final now = ctx.localNow();
+    p
+      ..text('BILL $orderNo   Token $tokenNo')
+      ..text(
+        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')} '
+        '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}  '
+        '${cart.orderType.replaceAll('_', ' ')}${cart.tableName != null ? '  Table ${cart.tableName}' : ''}',
+      )
+      ..align('left')
+      ..line();
+    for (var i = 0; i < cart.lines.length; i++) {
+      final l = cart.lines[i];
+      p
+        ..text(l.name)
+        ..row('  ${_qty(l.qtyMilli)} x ${ctx.money(l.unitPriceMinor)}', ctx.money(priced.lines[i].gross));
+    }
+    p
+      ..line()
+      ..row('Subtotal', ctx.money(priced.subtotalMinor));
+    if (priced.discountMinor > 0) p.row('Discount', '-${ctx.money(priced.discountMinor)}');
+    for (final c in priced.charges) {
+      p.row(c.code == 'SERVICE' ? 'Service charge' : c.code, ctx.money(c.net + c.tax));
+    }
+    p
+      ..row('VAT', ctx.money(priced.taxMinor))
+      ..bold(true)
+      ..row('TOTAL ${ctx.currency}', ctx.money(priced.totalMinor))
+      ..bold(false)
+      ..line()
+      ..align('center');
+    for (final f in footer.split('\n').where((l) => l.trim().isNotEmpty)) {
+      p.text(f);
+    }
+    return p
       ..feed(3)
       ..cut();
   }

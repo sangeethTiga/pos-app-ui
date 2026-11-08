@@ -15,7 +15,8 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$LoginState {
 
- List<StaffUser> get users; StaffUser? get selected; List<String> get shiftNames; String? get shiftName;/// CASHIER or CAPTAIN: captains have no cash drawer, so no shift or drawer balance.
+ List<StaffUser> get users;/// Synced staff who may not log in on this device type (managers, owners, the other role).
+ int get otherStaff; StaffUser? get selected; List<String> get shiftNames; String? get shiftName;/// CASHIER or CAPTAIN: captains have no cash drawer, so no shift or drawer balance.
  String get deviceType;/// A shift is already open on this terminal: no shift / drawer fields.
  String? get openShiftName; bool get shiftAlreadyOpen; bool get loaded; bool get checking; bool get loggedIn; String? get error;
 /// Create a copy of LoginState
@@ -29,20 +30,20 @@ $LoginStateCopyWith<LoginState> get copyWith => _$LoginStateCopyWithImpl<LoginSt
 @override
 bool operator ==(Object other) {
   final _this = this as LoginState;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is LoginState&&const DeepCollectionEquality().equals(other.users, _this.users)&&(identical(other.selected, _this.selected) || other.selected == _this.selected)&&const DeepCollectionEquality().equals(other.shiftNames, _this.shiftNames)&&(identical(other.shiftName, _this.shiftName) || other.shiftName == _this.shiftName)&&(identical(other.deviceType, _this.deviceType) || other.deviceType == _this.deviceType)&&(identical(other.openShiftName, _this.openShiftName) || other.openShiftName == _this.openShiftName)&&(identical(other.shiftAlreadyOpen, _this.shiftAlreadyOpen) || other.shiftAlreadyOpen == _this.shiftAlreadyOpen)&&(identical(other.loaded, _this.loaded) || other.loaded == _this.loaded)&&(identical(other.checking, _this.checking) || other.checking == _this.checking)&&(identical(other.loggedIn, _this.loggedIn) || other.loggedIn == _this.loggedIn)&&(identical(other.error, _this.error) || other.error == _this.error));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is LoginState&&const DeepCollectionEquality().equals(other.users, _this.users)&&(identical(other.otherStaff, _this.otherStaff) || other.otherStaff == _this.otherStaff)&&(identical(other.selected, _this.selected) || other.selected == _this.selected)&&const DeepCollectionEquality().equals(other.shiftNames, _this.shiftNames)&&(identical(other.shiftName, _this.shiftName) || other.shiftName == _this.shiftName)&&(identical(other.deviceType, _this.deviceType) || other.deviceType == _this.deviceType)&&(identical(other.openShiftName, _this.openShiftName) || other.openShiftName == _this.openShiftName)&&(identical(other.shiftAlreadyOpen, _this.shiftAlreadyOpen) || other.shiftAlreadyOpen == _this.shiftAlreadyOpen)&&(identical(other.loaded, _this.loaded) || other.loaded == _this.loaded)&&(identical(other.checking, _this.checking) || other.checking == _this.checking)&&(identical(other.loggedIn, _this.loggedIn) || other.loggedIn == _this.loggedIn)&&(identical(other.error, _this.error) || other.error == _this.error));
 }
 
 
 @override
 int get hashCode {
   final _this = this as LoginState;
-  return Object.hash(runtimeType,const DeepCollectionEquality().hash(_this.users),_this.selected,const DeepCollectionEquality().hash(_this.shiftNames),_this.shiftName,_this.deviceType,_this.openShiftName,_this.shiftAlreadyOpen,_this.loaded,_this.checking,_this.loggedIn,_this.error);
+  return Object.hash(runtimeType,const DeepCollectionEquality().hash(_this.users),_this.otherStaff,_this.selected,const DeepCollectionEquality().hash(_this.shiftNames),_this.shiftName,_this.deviceType,_this.openShiftName,_this.shiftAlreadyOpen,_this.loaded,_this.checking,_this.loggedIn,_this.error);
 }
 
 @override
 String toString() {
   final _this = this as LoginState;
-  return 'LoginState(users: ${_this.users}, selected: ${_this.selected}, shiftNames: ${_this.shiftNames}, shiftName: ${_this.shiftName}, deviceType: ${_this.deviceType}, openShiftName: ${_this.openShiftName}, shiftAlreadyOpen: ${_this.shiftAlreadyOpen}, loaded: ${_this.loaded}, checking: ${_this.checking}, loggedIn: ${_this.loggedIn}, error: ${_this.error})';
+  return 'LoginState(users: ${_this.users}, otherStaff: ${_this.otherStaff}, selected: ${_this.selected}, shiftNames: ${_this.shiftNames}, shiftName: ${_this.shiftName}, deviceType: ${_this.deviceType}, openShiftName: ${_this.openShiftName}, shiftAlreadyOpen: ${_this.shiftAlreadyOpen}, loaded: ${_this.loaded}, checking: ${_this.checking}, loggedIn: ${_this.loggedIn}, error: ${_this.error})';
 }
 
 
@@ -53,7 +54,7 @@ abstract mixin class $LoginStateCopyWith<$Res>  {
   factory $LoginStateCopyWith(LoginState value, $Res Function(LoginState) _then) = _$LoginStateCopyWithImpl;
 @useResult
 $Res call({
- List<StaffUser> users, StaffUser? selected, List<String> shiftNames, String? shiftName, String deviceType, String? openShiftName, bool shiftAlreadyOpen, bool loaded, bool checking, bool loggedIn, String? error
+ List<StaffUser> users, int otherStaff, StaffUser? selected, List<String> shiftNames, String? shiftName, String deviceType, String? openShiftName, bool shiftAlreadyOpen, bool loaded, bool checking, bool loggedIn, String? error
 });
 
 
@@ -70,10 +71,11 @@ class _$LoginStateCopyWithImpl<$Res>
 
 /// Create a copy of LoginState
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? users = null,Object? selected = freezed,Object? shiftNames = null,Object? shiftName = freezed,Object? deviceType = null,Object? openShiftName = freezed,Object? shiftAlreadyOpen = null,Object? loaded = null,Object? checking = null,Object? loggedIn = null,Object? error = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? users = null,Object? otherStaff = null,Object? selected = freezed,Object? shiftNames = null,Object? shiftName = freezed,Object? deviceType = null,Object? openShiftName = freezed,Object? shiftAlreadyOpen = null,Object? loaded = null,Object? checking = null,Object? loggedIn = null,Object? error = freezed,}) {
   return _then(LoginState(
 users: null == users ? _self.users : users // ignore: cast_nullable_to_non_nullable
-as List<StaffUser>,selected: freezed == selected ? _self.selected : selected // ignore: cast_nullable_to_non_nullable
+as List<StaffUser>,otherStaff: null == otherStaff ? _self.otherStaff : otherStaff // ignore: cast_nullable_to_non_nullable
+as int,selected: freezed == selected ? _self.selected : selected // ignore: cast_nullable_to_non_nullable
 as StaffUser?,shiftNames: null == shiftNames ? _self.shiftNames : shiftNames // ignore: cast_nullable_to_non_nullable
 as List<String>,shiftName: freezed == shiftName ? _self.shiftName : shiftName // ignore: cast_nullable_to_non_nullable
 as String?,deviceType: null == deviceType ? _self.deviceType : deviceType // ignore: cast_nullable_to_non_nullable
@@ -168,10 +170,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( List<StaffUser> users,  StaffUser? selected,  List<String> shiftNames,  String? shiftName,  String deviceType,  String? openShiftName,  bool shiftAlreadyOpen,  bool loaded,  bool checking,  bool loggedIn,  String? error)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( List<StaffUser> users,  int otherStaff,  StaffUser? selected,  List<String> shiftNames,  String? shiftName,  String deviceType,  String? openShiftName,  bool shiftAlreadyOpen,  bool loaded,  bool checking,  bool loggedIn,  String? error)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _LoginState() when $default != null:
-return $default(_that.users,_that.selected,_that.shiftNames,_that.shiftName,_that.deviceType,_that.openShiftName,_that.shiftAlreadyOpen,_that.loaded,_that.checking,_that.loggedIn,_that.error);case _:
+return $default(_that.users,_that.otherStaff,_that.selected,_that.shiftNames,_that.shiftName,_that.deviceType,_that.openShiftName,_that.shiftAlreadyOpen,_that.loaded,_that.checking,_that.loggedIn,_that.error);case _:
   return orElse();
 
 }
@@ -189,10 +191,10 @@ return $default(_that.users,_that.selected,_that.shiftNames,_that.shiftName,_tha
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( List<StaffUser> users,  StaffUser? selected,  List<String> shiftNames,  String? shiftName,  String deviceType,  String? openShiftName,  bool shiftAlreadyOpen,  bool loaded,  bool checking,  bool loggedIn,  String? error)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( List<StaffUser> users,  int otherStaff,  StaffUser? selected,  List<String> shiftNames,  String? shiftName,  String deviceType,  String? openShiftName,  bool shiftAlreadyOpen,  bool loaded,  bool checking,  bool loggedIn,  String? error)  $default,) {final _that = this;
 switch (_that) {
 case _LoginState():
-return $default(_that.users,_that.selected,_that.shiftNames,_that.shiftName,_that.deviceType,_that.openShiftName,_that.shiftAlreadyOpen,_that.loaded,_that.checking,_that.loggedIn,_that.error);case _:
+return $default(_that.users,_that.otherStaff,_that.selected,_that.shiftNames,_that.shiftName,_that.deviceType,_that.openShiftName,_that.shiftAlreadyOpen,_that.loaded,_that.checking,_that.loggedIn,_that.error);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -209,10 +211,10 @@ return $default(_that.users,_that.selected,_that.shiftNames,_that.shiftName,_tha
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( List<StaffUser> users,  StaffUser? selected,  List<String> shiftNames,  String? shiftName,  String deviceType,  String? openShiftName,  bool shiftAlreadyOpen,  bool loaded,  bool checking,  bool loggedIn,  String? error)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( List<StaffUser> users,  int otherStaff,  StaffUser? selected,  List<String> shiftNames,  String? shiftName,  String deviceType,  String? openShiftName,  bool shiftAlreadyOpen,  bool loaded,  bool checking,  bool loggedIn,  String? error)?  $default,) {final _that = this;
 switch (_that) {
 case _LoginState() when $default != null:
-return $default(_that.users,_that.selected,_that.shiftNames,_that.shiftName,_that.deviceType,_that.openShiftName,_that.shiftAlreadyOpen,_that.loaded,_that.checking,_that.loggedIn,_that.error);case _:
+return $default(_that.users,_that.otherStaff,_that.selected,_that.shiftNames,_that.shiftName,_that.deviceType,_that.openShiftName,_that.shiftAlreadyOpen,_that.loaded,_that.checking,_that.loggedIn,_that.error);case _:
   return null;
 
 }
@@ -224,7 +226,7 @@ return $default(_that.users,_that.selected,_that.shiftNames,_that.shiftName,_tha
 
 
 class _LoginState extends LoginState {
-  const _LoginState({ List<StaffUser> users = const <StaffUser>[], this.selected,  List<String> shiftNames = const <String>[], this.shiftName, this.deviceType = 'CASHIER', this.openShiftName, this.shiftAlreadyOpen = false, this.loaded = false, this.checking = false, this.loggedIn = false, this.error}): _users = users,_shiftNames = shiftNames,super._();
+  const _LoginState({ List<StaffUser> users = const <StaffUser>[], this.otherStaff = 0, this.selected,  List<String> shiftNames = const <String>[], this.shiftName, this.deviceType = 'CASHIER', this.openShiftName, this.shiftAlreadyOpen = false, this.loaded = false, this.checking = false, this.loggedIn = false, this.error}): _users = users,_shiftNames = shiftNames,super._();
   
 
  final  List<StaffUser> _users;
@@ -234,6 +236,8 @@ class _LoginState extends LoginState {
   return EqualUnmodifiableListView(_users);
 }
 
+/// Synced staff who may not log in on this device type (managers, owners, the other role).
+@override@JsonKey() final  int otherStaff;
 @override final  StaffUser? selected;
  final  List<String> _shiftNames;
 @override@JsonKey() List<String> get shiftNames {
@@ -263,18 +267,18 @@ _$LoginStateCopyWith<_LoginState> get copyWith => __$LoginStateCopyWithImpl<_Log
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _LoginState&&const DeepCollectionEquality().equals(other.users, _users)&&(identical(other.selected, selected) || other.selected == selected)&&const DeepCollectionEquality().equals(other.shiftNames, _shiftNames)&&(identical(other.shiftName, shiftName) || other.shiftName == shiftName)&&(identical(other.deviceType, deviceType) || other.deviceType == deviceType)&&(identical(other.openShiftName, openShiftName) || other.openShiftName == openShiftName)&&(identical(other.shiftAlreadyOpen, shiftAlreadyOpen) || other.shiftAlreadyOpen == shiftAlreadyOpen)&&(identical(other.loaded, loaded) || other.loaded == loaded)&&(identical(other.checking, checking) || other.checking == checking)&&(identical(other.loggedIn, loggedIn) || other.loggedIn == loggedIn)&&(identical(other.error, error) || other.error == error));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _LoginState&&const DeepCollectionEquality().equals(other.users, _users)&&(identical(other.otherStaff, otherStaff) || other.otherStaff == otherStaff)&&(identical(other.selected, selected) || other.selected == selected)&&const DeepCollectionEquality().equals(other.shiftNames, _shiftNames)&&(identical(other.shiftName, shiftName) || other.shiftName == shiftName)&&(identical(other.deviceType, deviceType) || other.deviceType == deviceType)&&(identical(other.openShiftName, openShiftName) || other.openShiftName == openShiftName)&&(identical(other.shiftAlreadyOpen, shiftAlreadyOpen) || other.shiftAlreadyOpen == shiftAlreadyOpen)&&(identical(other.loaded, loaded) || other.loaded == loaded)&&(identical(other.checking, checking) || other.checking == checking)&&(identical(other.loggedIn, loggedIn) || other.loggedIn == loggedIn)&&(identical(other.error, error) || other.error == error));
 }
 
 
 @override
 int get hashCode {
-    return Object.hash(runtimeType,const DeepCollectionEquality().hash(_users),selected,const DeepCollectionEquality().hash(_shiftNames),shiftName,deviceType,openShiftName,shiftAlreadyOpen,loaded,checking,loggedIn,error);
+    return Object.hash(runtimeType,const DeepCollectionEquality().hash(_users),otherStaff,selected,const DeepCollectionEquality().hash(_shiftNames),shiftName,deviceType,openShiftName,shiftAlreadyOpen,loaded,checking,loggedIn,error);
 }
 
 @override
 String toString() {
-    return 'LoginState(users: $users, selected: $selected, shiftNames: $shiftNames, shiftName: $shiftName, deviceType: $deviceType, openShiftName: $openShiftName, shiftAlreadyOpen: $shiftAlreadyOpen, loaded: $loaded, checking: $checking, loggedIn: $loggedIn, error: $error)';
+    return 'LoginState(users: $users, otherStaff: $otherStaff, selected: $selected, shiftNames: $shiftNames, shiftName: $shiftName, deviceType: $deviceType, openShiftName: $openShiftName, shiftAlreadyOpen: $shiftAlreadyOpen, loaded: $loaded, checking: $checking, loggedIn: $loggedIn, error: $error)';
 }
 
 
@@ -285,7 +289,7 @@ abstract mixin class _$LoginStateCopyWith<$Res> implements $LoginStateCopyWith<$
   factory _$LoginStateCopyWith(_LoginState value, $Res Function(_LoginState) _then) = __$LoginStateCopyWithImpl;
 @override @useResult
 $Res call({
- List<StaffUser> users, StaffUser? selected, List<String> shiftNames, String? shiftName, String deviceType, String? openShiftName, bool shiftAlreadyOpen, bool loaded, bool checking, bool loggedIn, String? error
+ List<StaffUser> users, int otherStaff, StaffUser? selected, List<String> shiftNames, String? shiftName, String deviceType, String? openShiftName, bool shiftAlreadyOpen, bool loaded, bool checking, bool loggedIn, String? error
 });
 
 
@@ -302,10 +306,11 @@ class __$LoginStateCopyWithImpl<$Res>
 
 /// Create a copy of LoginState
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? users = null,Object? selected = freezed,Object? shiftNames = null,Object? shiftName = freezed,Object? deviceType = null,Object? openShiftName = freezed,Object? shiftAlreadyOpen = null,Object? loaded = null,Object? checking = null,Object? loggedIn = null,Object? error = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? users = null,Object? otherStaff = null,Object? selected = freezed,Object? shiftNames = null,Object? shiftName = freezed,Object? deviceType = null,Object? openShiftName = freezed,Object? shiftAlreadyOpen = null,Object? loaded = null,Object? checking = null,Object? loggedIn = null,Object? error = freezed,}) {
   return _then(_LoginState(
 users: null == users ? _self._users : users // ignore: cast_nullable_to_non_nullable
-as List<StaffUser>,selected: freezed == selected ? _self.selected : selected // ignore: cast_nullable_to_non_nullable
+as List<StaffUser>,otherStaff: null == otherStaff ? _self.otherStaff : otherStaff // ignore: cast_nullable_to_non_nullable
+as int,selected: freezed == selected ? _self.selected : selected // ignore: cast_nullable_to_non_nullable
 as StaffUser?,shiftNames: null == shiftNames ? _self._shiftNames : shiftNames // ignore: cast_nullable_to_non_nullable
 as List<String>,shiftName: freezed == shiftName ? _self.shiftName : shiftName // ignore: cast_nullable_to_non_nullable
 as String?,deviceType: null == deviceType ? _self.deviceType : deviceType // ignore: cast_nullable_to_non_nullable

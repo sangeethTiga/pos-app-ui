@@ -111,4 +111,17 @@ void main() {
     ]);
     expect((await store.find('orders', 'o1'))!.data['status'], 'VOIDED');
   });
+
+  test('bindTo: another device id empties the database, the same id keeps it', () async {
+    await store.bindTo('d1');
+    await store.applyIncoming([
+      server(1, 'user', 'u1', 'INSERT', {'name': 'Old'}, '1762585120000-0001-SERVER'),
+    ]);
+    await store.bindTo('d1');
+    expect(await store.all('user'), hasLength(1));
+
+    await store.bindTo('d2');
+    expect(await store.all('user'), isEmpty);
+    expect(await store.getValue('paired_device_id'), 'd2');
+  });
 }

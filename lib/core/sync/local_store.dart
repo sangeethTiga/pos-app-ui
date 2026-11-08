@@ -56,6 +56,23 @@ class LocalStore {
   static const _statusRank = {'OPEN': 0, 'BILLED': 1, 'SETTLED': 2, 'VOIDED': 3};
 
   /// Must be called once the terminal is paired (origin = device code, e.g. P1).
+  /// The data on this terminal belongs to the paired device [deviceId]. Paired again as another
+  /// device (new registration, other store, server reset): the local database is emptied so the
+  /// terminal pulls everything fresh (users with passwords, menu, settings). Re-pairing the same
+  /// device keeps its data. Databases from before this check are emptied only with nothing unsent.
+  Future<void> bindTo(String deviceId) async {
+    final current = await getValue('paired_device_id');
+    if (current == deviceId) return;
+    if (current != null || await pendingCount() == 0) {
+      await db.transaction(() async {
+        for (final t in db.allTables) {
+          await db.delete(t).go();
+        }
+      });
+    }
+    await setValue('paired_device_id', deviceId);
+  }
+
   Future<void> open(String origin) async {
     _origin = origin;
     final last = await getValue('last_hlc');

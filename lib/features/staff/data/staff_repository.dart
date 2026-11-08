@@ -18,19 +18,40 @@ class StaffUser {
     required this.permissions,
     required this.maxDiscountBp,
     this.username,
+    this.email,
     this.passwordHash,
+    this.roles = const {},
   });
   final String id;
   final String name;
   final String? username;
+
+  /// Account email set by the admin (anucashier@gmail.com): the name picked on the login screen.
+  final String? email;
   final String? pinHash;
 
   /// Same password as the admin panel (login screen checks it offline).
   final String? passwordHash;
+
+  /// Role names in this store (Cashier, Captain ...). Empty in profiles synced before roles were sent.
+  final Set<String> roles;
   final Set<String> permissions;
   final int maxDiscountBp;
 
   bool can(String permission) => permissions.contains(permission);
+
+  /// Account for this terminal type: Cashier accounts on cashier devices, Captain accounts on
+  /// captain devices. Old profiles without role names fall back to permissions.
+  bool canLoginOn(String deviceType) {
+    final role = deviceType == 'CAPTAIN' ? 'Captain' : 'Cashier';
+    if (roles.isNotEmpty) return roles.contains(role);
+    return deviceType == 'CAPTAIN'
+        ? can('order.create') && !can('payment.take')
+        : can('payment.take') && !can('role.manage') && !can('user.manage');
+  }
+
+  /// Shown in the login dropdown.
+  String get loginName => email ?? username ?? name;
 }
 
 /// Who is logged in on this terminal right now.
@@ -59,9 +80,11 @@ class StaffRepository {
             id: r.id,
             name: r.data['name'] as String? ?? '',
             username: r.data['username'] as String?,
+            email: r.data['email'] as String?,
             pinHash: r.data['pin_hash'] as String?,
             passwordHash: r.data['password_hash'] as String?,
             permissions: {...((r.data['permissions'] as List?) ?? const []).cast<String>()},
+            roles: {...((r.data['roles'] as List?) ?? const []).cast<String>()},
             maxDiscountBp: (r.data['max_discount_bp'] as num?)?.toInt() ?? 0,
           ),
     ];

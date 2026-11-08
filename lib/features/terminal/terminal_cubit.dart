@@ -49,6 +49,7 @@ class TerminalCubit extends Cubit<TerminalState> {
       deviceType: s.profile.deviceType.wire,
       kioskId: s.profile.kioskId,
     );
+    await _store.bindTo(s.deviceId);
     await _store.open(s.deviceCode);
     emit(state.copyWith(started: true, syncing: true, pending: await _store.pendingCount()));
     _sub = _scheduler.reports.listen(_onReport);

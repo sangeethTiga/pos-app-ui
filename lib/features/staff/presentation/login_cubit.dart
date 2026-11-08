@@ -13,6 +13,9 @@ part 'login_cubit.freezed.dart';
 abstract class LoginState with _$LoginState {
   const factory LoginState({
     @Default(<StaffUser>[]) List<StaffUser> users,
+
+    /// Synced staff who may not log in on this device type (managers, owners, the other role).
+    @Default(0) int otherStaff,
     StaffUser? selected,
     @Default(<String>[]) List<String> shiftNames,
     String? shiftName,
@@ -49,17 +52,23 @@ class LoginCubit extends Cubit<LoginState> {
   final TerminalContextHolder _ctx;
 
   Future<void> load() async {
-    final users = await _staff.users();
+    final deviceType = _ctx.ready ? _ctx.ctx.deviceType : 'CASHIER';
+    final all = await _staff.users();
+    final users = [
+      for (final u in all)
+        if (u.canLoginOn(deviceType)) u,
+    ];
     final names = await _shiftNames();
     final open = _ctx.ready ? await _shifts.openShift() : null;
     final selected = users.where((u) => u.id == state.selected?.id).firstOrNull;
     emit(
       state.copyWith(
         users: users,
+        otherStaff: all.length - users.length,
         selected: selected,
         shiftNames: names,
         shiftName: names.contains(state.shiftName) ? state.shiftName : names.firstOrNull,
-        deviceType: _ctx.ready ? _ctx.ctx.deviceType : 'CASHIER',
+        deviceType: deviceType,
         shiftAlreadyOpen: open != null,
         openShiftName: open?.data['name'] as String?,
         loaded: true,

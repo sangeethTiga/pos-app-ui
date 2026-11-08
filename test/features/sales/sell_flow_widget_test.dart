@@ -59,11 +59,13 @@ void main() {
       await store.applyIncoming([
         row(1, 'user', 'u1', {
           'name': 'Asha',
+          'email': 'anucashier@gmail.com',
           'active': true,
           'pin_hash': r'$2y$10$Ucs/UZbky3AT4mFew8TLo.kfbvDor4e9kkf3daMNSO9kMLL68DR5W',
           'password_hash': r'$2y$10$Ucs/UZbky3AT4mFew8TLo.kfbvDor4e9kkf3daMNSO9kMLL68DR5W', // "1234"
           'max_discount_bp': 1000,
           'permissions': ['order.create', 'payment.take', 'shift.open_close', 'cash.in_out', 'discount.apply'],
+          'roles': ['Cashier'],
         }),
         row(2, 'tax', 't1', {'name': 'VAT', 'rate_bp': 500, 'is_default': true}),
         row(3, 'category', 'c1', {'name': 'Drinks'}),
@@ -84,7 +86,7 @@ void main() {
     // Login: user, password (bcrypt; verification runs in an isolate), Morning Shift, 100.00 in the drawer.
     await tester.tap(find.byKey(const Key('userField')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Asha').last);
+    await tester.tap(find.text('anucashier@gmail.com').last);
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('passwordField')), '1234');
     await tester.enterText(find.byKey(const Key('drawerField')), '100');

@@ -135,7 +135,7 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Widget _form(BuildContext context, LoginState state, LoginCubit cubit) {
-    if (state.loaded && state.users.isEmpty) return const _NoUsers();
+    if (state.loaded && state.users.isEmpty) return _NoUsers(state: state);
     const gap = SizedBox(height: 44);
     return Center(
       child: SingleChildScrollView(
@@ -153,7 +153,11 @@ class _LoginPageState extends State<LoginPage> {
               style: Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 20, color: Colors.white),
               items: [
                 for (final u in state.users)
-                  DropdownMenuItem(value: u, key: Key('user-${u.id}'), child: Text(u.username ?? u.name)),
+                  DropdownMenuItem(
+                    value: u,
+                    key: Key('user-${u.id}'),
+                    child: Text(u.loginName, overflow: TextOverflow.ellipsis),
+                  ),
               ],
               onChanged: state.checking ? null : cubit.selectUser,
             ),
@@ -305,7 +309,9 @@ class _RoleBadge extends StatelessWidget {
 }
 
 class _NoUsers extends StatelessWidget {
-  const _NoUsers();
+  const _NoUsers({required this.state});
+
+  final LoginState state;
 
   @override
   Widget build(BuildContext context) {
@@ -315,7 +321,23 @@ class _NoUsers extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text('No staff on this terminal yet.', style: TextStyle(fontSize: 20, color: Colors.white)),
+          Text(
+            state.otherStaff > 0
+                ? 'No ${state.deviceType == 'CAPTAIN' ? 'Captain' : 'Cashier'} accounts for this terminal.'
+                : 'No staff on this terminal yet.',
+            key: const Key('noUsers'),
+            style: const TextStyle(fontSize: 20, color: Colors.white),
+          ),
+          if (state.otherStaff > 0) ...[
+            const SizedBox(height: 8),
+            Text(
+              '${state.otherStaff} other staff account(s) synced, but none has the '
+              '${state.deviceType == 'CAPTAIN' ? 'Captain' : 'Cashier'} role in this store. '
+              'Give the account that role in the admin panel.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.white70),
+            ),
+          ],
           const SizedBox(height: 8),
           Text(
             t.syncing

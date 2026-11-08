@@ -55,12 +55,42 @@ void main() {
       _server('user', 'u1', {
         'name': 'Asha',
         'username': 'asha',
+        'email': 'anucashier@gmail.com',
         'password_hash': hash,
         'active': true,
-        'permissions': ['shift.open_close', 'order.create'],
+        'permissions': ['shift.open_close', 'order.create', 'payment.take'],
+        'roles': ['Cashier'],
       }),
-      _server('user', 'u2', {'name': 'Waiter', 'password_hash': hash, 'active': true, 'permissions': <String>[]}),
-      _server('user', 'u3', {'name': 'Gone', 'password_hash': hash, 'active': false, 'permissions': <String>[]}),
+      _server('user', 'u2', {
+        'name': 'Ravi',
+        'email': 'ravicaptain@gmail.com',
+        'password_hash': hash,
+        'active': true,
+        'permissions': ['order.create'],
+        'roles': ['Captain'],
+      }),
+      _server('user', 'u3', {
+        'name': 'Gone',
+        'password_hash': hash,
+        'active': false,
+        'roles': ['Cashier'],
+      }),
+      _server('user', 'u4', {
+        'name': 'Boss',
+        'email': 'manager@gmail.com',
+        'password_hash': hash,
+        'active': true,
+        'permissions': ['payment.take', 'shift.open_close'],
+        'roles': ['Manager'],
+      }),
+      _server('user', 'u5', {
+        'name': 'Sana',
+        'email': 'sancashier@gmail.com',
+        'password_hash': hash,
+        'active': true,
+        'permissions': ['order.create', 'payment.take'],
+        'roles': ['Cashier'],
+      }),
     ]);
   });
   tearDown(() => store.db.close());
@@ -70,10 +100,21 @@ void main() {
     return LoginCubit(StaffRepository(store, MemorySecureStore()), session, ShiftService(store, ctx), store, ctx);
   }
 
-  test('loads active users and default shift names', () async {
+  test('cashier device lists only Cashier accounts, captain device only Captain accounts', () async {
+    final cashier = cubit('CASHIER');
+    await cashier.load();
+    expect(cashier.state.users.map((u) => u.loginName), ['anucashier@gmail.com', 'sancashier@gmail.com']);
+    expect(cashier.state.otherStaff, 2); // manager + captain
+    final captain = cubit('CAPTAIN');
+    await captain.load();
+    expect(captain.state.users.map((u) => u.loginName), ['ravicaptain@gmail.com']);
+  });
+
+  test('loads users and default shift names', () async {
     final c = cubit('CASHIER');
     await c.load();
-    expect(c.state.users.map((u) => u.id), ['u1', 'u2']);
+    expect(c.state.users.map((u) => u.id), ['u1', 'u5']);
+    expect(c.state.users.first.loginName, 'anucashier@gmail.com');
     expect(c.state.shiftNames, LoginCubit.defaultShiftNames);
     expect(c.state.shiftName, 'Morning Shift');
     expect(c.state.needsShift, isTrue);
@@ -119,10 +160,10 @@ void main() {
     expect(next.state.needsShift, isFalse);
   });
 
-  test('user without shift permission cannot open the shift', () async {
+  test('cashier without shift permission cannot open the shift', () async {
     final c = cubit('CASHIER');
     await c.load();
-    c.selectUser(c.state.users.last);
+    c.selectUser(c.state.users.last); // Sana: no shift.open_close
     await c.login(password: 'Secret-123', openingBalance: '0');
     expect(c.state.loggedIn, isFalse);
     expect(c.state.error, contains('may not open a shift'));

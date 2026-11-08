@@ -1,0 +1,22 @@
+{
+  "device_id": "019a5c3e-7d2b-7c11-9a3e-0f6b2d1c4e55",
+  "device_code": "P1",
+  "token_letter": "A",
+  "gateway_priority": 10,
+  "store": {
+    "id": "019a5c3e-6a10-7f3d-8b2c-1d2e3f4a5b6c",
+    "code": "ST-0007",
+    "name": "Store ST-0007",
+    "currency": "AED",
+    "currency_decimals": 2,
+    "timezone": "Asia/Dubai",
+    "business_day_cutoff": "04:00",
+    "prices_include_tax": true
+  },
+  "signing_secret": "5f1c0e8a9b7d6c5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e",
+  "access_token": "12|devicetokenvalue",
+  "access_token_expires_at": "2026-11-09T07:00:00.000Z",
+  "refresh_token": "refresh-token-value",
+  "refresh_token_expires_at": "2026-12-08T07:00:00.000Z",
+  "server_time": "2026-11-08T07:00:00.000Z"
+}

@@ -1,0 +1,4 @@
+tags:
+  e2e:
+    # Needs a running backend (see test/e2e). Run with: flutter test --tags e2e
+    skip: false

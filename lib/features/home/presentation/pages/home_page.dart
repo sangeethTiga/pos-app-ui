@@ -1,0 +1,83 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../../../app/routes.dart';
+import '../../../../core/error/failure.dart';
+import '../cubit/home_cubit.dart';
+
+class HomePage extends StatelessWidget {
+  const HomePage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocConsumer<HomeCubit, HomeState>(
+      listener: (context, state) {
+        if (state is HomeUnpaired) context.go(Routes.setup);
+      },
+      builder: (context, state) {
+        if (state is! HomeReady) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+        final s = state.session;
+        return Scaffold(
+          appBar: AppBar(
+            title: Text('${s.store.name} · ${s.deviceCode}'),
+            actions: [
+              IconButton(
+                tooltip: 'Check server',
+                onPressed: state.checking ? null : () => context.read<HomeCubit>().checkServer(),
+                icon: const Icon(Icons.sync),
+              ),
+              IconButton(
+                tooltip: 'Unpair',
+                onPressed: () => context.read<HomeCubit>().unpair(),
+                icon: const Icon(Icons.link_off),
+              ),
+            ],
+          ),
+          body: ListView(
+            padding: const EdgeInsets.all(24),
+            children: [
+              _Row('Store', '${s.store.name} (${s.store.code})'),
+              _Row('Terminal', '${s.deviceCode}  token letter ${s.tokenLetter}'),
+              _Row('Currency', '${s.store.currency} (${s.store.currencyDecimals} decimals)'),
+              _Row('Timezone', s.store.timezone),
+              const Divider(height: 32),
+              if (state.checking) const LinearProgressIndicator(),
+              if (state.status case final st?) ...[
+                _Row('Server', 'connected (signed request OK)'),
+                _Row('Device status', st.status),
+                _Row('Can sell', st.canSell ? 'yes' : 'no (store ${st.storeStatus})'),
+                _Row('Gateway', st.isGateway ? 'this terminal' : 'no'),
+                if (st.businessDate != null) _Row('Business date', st.businessDate!),
+              ],
+              if (state.failure case final f?)
+                Text(
+                  f.userMessage,
+                  key: const Key('homeError'),
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _Row extends StatelessWidget {
+  const _Row(this.label, this.value);
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 6),
+    child: Row(
+      children: [
+        SizedBox(width: 140, child: Text(label, style: Theme.of(context).textTheme.labelLarge)),
+        Expanded(child: Text(value)),
+      ],
+    ),
+  );
+}

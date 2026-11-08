@@ -1,4 +1,5 @@
 import '../../../core/terminal/terminal_context.dart';
+import '../../sales/domain/cart.dart';
 import '../../sales/domain/checkout_service.dart';
 import 'esc_pos.dart';
 
@@ -69,24 +70,49 @@ class TicketFormatter {
     return p;
   }
 
-  EscPos kot(CompletedSale s) {
+  EscPos kot(CompletedSale s) => kotTicket(tokenNo: s.tokenNo, orderNo: s.orderNo, cart: s.cart, lines: s.cart.lines);
+
+  /// Kitchen ticket. [kind] NEW_ITEMS prints "ADD-ON" for items added to a running order.
+  EscPos kotTicket({
+    required String tokenNo,
+    required String orderNo,
+    required Cart cart,
+    required List<CartLine> lines,
+    String kind = 'NEW',
+  }) {
+    final where = switch (cart.channel) {
+      Channel.dineIn =>
+        'DINE IN${cart.tableName != null ? '  Table ${cart.tableName}' : ''}'
+            '${cart.guests != null ? '  PAX ${cart.guests}' : ''}',
+      Channel.partner =>
+        '${cart.deliveryPartnerName ?? 'PARTNER'}${cart.partnerOrderNo != null ? ' #${cart.partnerOrderNo}' : ''}',
+      Channel.homeDelivery => 'HOME DELIVERY${cart.carhop ? '  CARHOP ${cart.carNo ?? ''}' : ''}',
+      _ => cart.orderType.replaceAll('_', ' '),
+    };
     final p = EscPos(width: width)
       ..align('center')
       ..bold(true)
       ..big(true)
-      ..text('KOT ${s.tokenNo}')
+      ..text(kind == 'NEW_ITEMS' ? 'ADD-ON $tokenNo' : 'KOT $tokenNo')
       ..big(false)
-      ..text(s.cart.orderType.replaceAll('_', ' ') + (s.cart.tableName != null ? '  Table ${s.cart.tableName}' : ''))
+      ..text(where)
       ..bold(false)
-      ..text('Bill ${s.orderNo}  ${ctx.deviceCode}')
+      ..text('Bill $orderNo  ${ctx.deviceCode}');
+    if (cart.captainName != null) p.text('Captain ${cart.captainName}');
+    p
       ..align('left')
       ..line();
-    for (final l in s.cart.lines) {
+    for (final l in lines) {
       p
         ..bold(true)
         ..text('${_qty(l.qtyMilli)}  x  ${l.name}')
         ..bold(false);
       if (l.note != null && l.note!.isNotEmpty) p.text('     * ${l.note}');
+    }
+    if (cart.kitchenNote != null && cart.kitchenNote!.isNotEmpty) {
+      p
+        ..line()
+        ..text('NOTE: ${cart.kitchenNote}');
     }
     return p
       ..line()

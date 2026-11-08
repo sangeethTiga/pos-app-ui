@@ -29,6 +29,13 @@ class CompletedSale {
   final DateTime settledAt;
 }
 
+/// Kitchen ticket lines; the kitchen note rides on the first line.
+List<Map<String, dynamic>> kotLines(List<CartLine> lines, String? kitchenNote) => [
+  for (final l in lines) {'name': l.name, 'qty_milli': l.qtyMilli, 'note': ?l.note},
+  if (kitchenNote != null && kitchenNote.trim().isNotEmpty)
+    {'name': 'NOTE', 'qty_milli': 0, 'note': kitchenNote.trim()},
+];
+
 class SaleException implements Exception {
   const SaleException(this.message);
   final String message;
@@ -76,7 +83,8 @@ class CheckoutService {
         : null,
   );
 
-  Future<String> _nextNumber(String key, String Function(int) format) async {
+  /// Next number of a per-terminal counter (order numbers, daily tokens).
+  Future<String> nextNumber(String key, String Function(int) format) async {
     final n = int.parse(await _store.getValue(key) ?? '0') + 1;
     await _store.setValue(key, '$n');
     return format(n);
@@ -91,8 +99,12 @@ class CheckoutService {
     required String userId,
     required String cashierName,
     int? cashTenderedMinor,
+
+    /// false = "Quick Order (No KOT)": settled at once, nothing goes to the kitchen.
+    bool sendKot = true,
   }) async {
     if (cart.isEmpty) throw const SaleException('The cart is empty.');
+    if (cart.existingOrderId != null) throw const SaleException('Settle the running table order from Orders.');
     final shift = await _shifts.openShift() ?? (throw const SaleException('Open a shift before selling.'));
     final dayId = shift.data['business_day_id'] as String;
     final day = await _store.find('business_day', dayId);
@@ -113,8 +125,8 @@ class CheckoutService {
       throw const SaleException('The payment does not cover the bill.');
     }
 
-    final orderNo = await _nextNumber('doc_order_no', (n) => '${ctx.deviceCode}-${n.toString().padLeft(6, '0')}');
-    final tokenNo = await _nextNumber(
+    final orderNo = await nextNumber('doc_order_no', (n) => '${ctx.deviceCode}-${n.toString().padLeft(6, '0')}');
+    final tokenNo = await nextNumber(
       'doc_token_$businessDate',
       (n) => '${ctx.tokenLetter}-${n.toString().padLeft(3, '0')}',
     );
@@ -131,10 +143,9 @@ class CheckoutService {
         'kiosk_id': ?_ctx.ctx.kioskId,
         'order_no': orderNo,
         'token_no': tokenNo,
-        'order_type': cart.orderType,
+        ...cart.orderFields(),
         'status': 'SETTLED',
         'payment_status': 'PAID',
-        'table_id': ?cart.tableId,
         'created_by': userId,
         'settled_by': userId,
         'subtotal_minor': priced.subtotalMinor,
@@ -155,7 +166,7 @@ class CheckoutService {
       changes.add(
         LocalChange.insert('order_line', {
           'order_id': orderId,
-          'product_id': l.productId,
+          'product_id': ?l.productId,
           'name_snapshot': l.name,
           'qty_milli': l.qtyMilli,
           'unit_price_minor': l.unitPriceMinor,
@@ -164,7 +175,7 @@ class CheckoutService {
           'price_includes_tax': l.priceIncludesTax,
           'tax_minor': p.tax,
           'line_total_minor': p.lineTotal,
-          'kot_status': 'SENT',
+          'kot_status': sendKot ? 'SENT' : 'NEW',
           'note': ?l.note,
           'added_by_device': ctx.deviceCode,
         }),
@@ -272,18 +283,17 @@ class CheckoutService {
         'occurred_at': nowIso,
       }),
     );
-    final kotLines = [
-      for (final l in cart.lines) {'name': l.name, 'qty_milli': l.qtyMilli, 'note': ?l.note},
-    ];
-    changes.add(
-      LocalChange.insert('kot', {
-        'order_id': orderId,
-        'kind': 'NEW',
-        'token_no': tokenNo,
-        'lines': kotLines,
-        'device_code': ctx.deviceCode,
-      }),
-    );
+    if (sendKot) {
+      changes.add(
+        LocalChange.insert('kot', {
+          'order_id': orderId,
+          'kind': 'NEW',
+          'token_no': tokenNo,
+          'lines': kotLines(cart.lines, cart.kitchenNote),
+          'device_code': ctx.deviceCode,
+        }),
+      );
+    }
 
     await _store.commit(changes, userId: userId);
     _onCommit?.call();

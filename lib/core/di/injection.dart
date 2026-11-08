@@ -12,7 +12,9 @@ import '../../features/device_setup/domain/usecases/register_device.dart';
 import '../../features/device_setup/presentation/bloc/device_setup_bloc.dart';
 import '../../features/home/presentation/cubit/home_cubit.dart';
 import '../../features/printing/data/printer_service.dart';
+import '../../features/sales/data/home_repository.dart';
 import '../../features/sales/domain/checkout_service.dart';
+import '../../features/sales/domain/order_service.dart';
 import '../../features/sales/presentation/cubit/sell_cubit.dart';
 import '../../features/shift/domain/shift_service.dart';
 import '../../features/staff/data/staff_repository.dart';
@@ -111,9 +113,25 @@ Future<void> configureDependencies({AppConfig? config, SecureStore? secureStore,
     ..registerLazySingleton(
       () => CheckoutService(sl<LocalStore>(), sl<TerminalContextHolder>(), sl<ShiftService>(), _afterCommit),
     )
+    ..registerLazySingleton(
+      () => OrderService(
+        sl<LocalStore>(),
+        sl<TerminalContextHolder>(),
+        sl<ShiftService>(),
+        sl<CheckoutService>(),
+        _afterCommit,
+      ),
+    )
+    ..registerLazySingleton(() => HomeRepository(sl<LocalStore>(), sl<StaffRepository>(), _afterCommit))
     ..registerFactory(
-      () =>
-          SellCubit(sl<CatalogueRepository>(), sl<CheckoutService>(), sl<ShiftService>(), sl<TerminalContextHolder>()),
+      () => SellCubit(
+        sl<CatalogueRepository>(),
+        sl<CheckoutService>(),
+        sl<ShiftService>(),
+        sl<TerminalContextHolder>(),
+        sl<OrderService>(),
+        sl<HomeRepository>(),
+      ),
     )
     ..registerLazySingleton(() => PrinterService(sl<LocalStore>()));
 }

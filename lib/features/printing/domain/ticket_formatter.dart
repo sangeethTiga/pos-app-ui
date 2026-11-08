@@ -45,7 +45,11 @@ class TicketFormatter {
       ..row('Subtotal', ctx.money(s.priced.subtotalMinor));
     if (s.priced.discountMinor > 0) p.row('Discount', '-${ctx.money(s.priced.discountMinor)}');
     for (final c in s.priced.charges) {
-      p.row(c.code == 'SERVICE' ? 'Service charge' : c.code, ctx.money(c.net + c.tax));
+      p.row(switch (c.code) {
+        'SERVICE' => 'Service charge',
+        'DELIVERY' => 'Delivery charge',
+        _ => c.code,
+      }, ctx.money(c.net + c.tax));
     }
     p.row('VAT', ctx.money(s.priced.taxMinor));
     if (s.settlement.roundingMinor != 0) p.row('Rounding', ctx.money(s.settlement.roundingMinor));
@@ -194,7 +198,11 @@ class TicketFormatter {
       ..row('Subtotal', ctx.money(priced.subtotalMinor));
     if (priced.discountMinor > 0) p.row('Discount', '-${ctx.money(priced.discountMinor)}');
     for (final c in priced.charges) {
-      p.row(c.code == 'SERVICE' ? 'Service charge' : c.code, ctx.money(c.net + c.tax));
+      p.row(switch (c.code) {
+        'SERVICE' => 'Service charge',
+        'DELIVERY' => 'Delivery charge',
+        _ => c.code,
+      }, ctx.money(c.net + c.tax));
     }
     p
       ..row('VAT', ctx.money(priced.taxMinor))

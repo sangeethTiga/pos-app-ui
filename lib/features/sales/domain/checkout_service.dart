@@ -81,7 +81,22 @@ class CheckoutService {
             taxRateBp: settings.serviceChargeTaxable && cart.lines.isNotEmpty ? cart.lines.first.taxRateBp : 0,
           )
         : null,
+    fixedCharges: [?_deliveryCharge(cart)],
   );
+
+  /// Delivery charge as a priced charge: the amount entered is what the guest pays, so with VAT-inclusive
+  /// prices the VAT is taken out of it.
+  static ({String code, int amountMinor, int taxRateBp})? _deliveryCharge(Cart cart) {
+    final gross = cart.deliveryChargeMinor;
+    if (gross <= 0) return null;
+    final rate = cart.lines.isEmpty ? 0 : cart.lines.first.taxRateBp;
+    final inclusive = cart.lines.isEmpty || cart.lines.first.priceIncludesTax;
+    return (
+      code: 'DELIVERY',
+      amountMinor: inclusive ? IntMath.mulDivRound(gross, 10000, 10000 + rate) : gross,
+      taxRateBp: rate,
+    );
+  }
 
   /// Next number of a per-terminal counter (order numbers, daily tokens).
   Future<String> nextNumber(String key, String Function(int) format) async {
@@ -264,6 +279,12 @@ class CheckoutService {
       for (final r in await _store.all('order_line'))
         if (r.data['order_id'] == orderId && r.data['kot_status'] != 'CANCELLED') r,
     ];
+    var deliveryMinor = 0;
+    for (final c in await _store.all('order_charge')) {
+      if (c.data['order_id'] == orderId && c.data['code'] == 'DELIVERY') {
+        deliveryMinor = ((c.data['net_minor'] as num?) ?? 0).toInt() + ((c.data['tax_minor'] as num?) ?? 0).toInt();
+      }
+    }
     var discountBp = 0;
     for (final d in await _store.all('order_discount')) {
       if (d.data['order_id'] == orderId && d.data['kind'] == 'PERCENT') {
@@ -299,6 +320,7 @@ class CheckoutService {
       partnerOrderNo: o['partner_order_no'] as String?,
       kitchenNote: o['note'] as String?,
       discountBp: discountBp,
+      deliveryChargeMinor: deliveryMinor,
     );
   }
 

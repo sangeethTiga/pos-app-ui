@@ -227,6 +227,25 @@ class OrderService {
     if (cancelled.isNotEmpty && !canReduce) {
       throw const SaleException('You may not reduce items already sent to the kitchen.');
     }
+    // charges (delivery, service) follow the new totals: update by code, zero the ones gone
+    final chargeRows = {
+      for (final r in await _store.all('order_charge'))
+        if (r.data['order_id'] == order.id) r.data['code'] as String? ?? '': r.id,
+    };
+    for (final c in priced.charges) {
+      final values = {'net_minor': c.net, 'tax_minor': c.tax};
+      final id = chargeRows[c.code];
+      changes.add(
+        id != null
+            ? LocalChange.update('order_charge', id, values)
+            : LocalChange.insert('order_charge', {'order_id': order.id, 'code': c.code, ...values}),
+      );
+    }
+    for (final MapEntry(key: code, value: id) in chargeRows.entries) {
+      if (!priced.charges.any((c) => c.code == code)) {
+        changes.add(LocalChange.update('order_charge', id, {'net_minor': 0, 'tax_minor': 0}));
+      }
+    }
     final tokenNo = order.data['token_no'] as String? ?? '';
     changes.addAll([
       LocalChange.update('orders', order.id, {

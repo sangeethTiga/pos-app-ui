@@ -12,6 +12,7 @@ import 'package:pos_app_ui/core/storage/secure_store.dart';
 import 'package:pos_app_ui/core/sync/local_store.dart';
 import 'package:pos_app_ui/core/sync/sync_change.dart';
 import 'package:pos_app_ui/core/terminal/terminal_context.dart';
+import 'package:pos_app_ui/features/sales/domain/checkout_service.dart';
 import 'package:pos_app_ui/features/sync/domain/sync_scheduler.dart';
 import 'package:pos_app_ui/features/terminal/terminal_cubit.dart';
 
@@ -138,22 +139,34 @@ void main() {
     expect(find.text('Quick Update Order'), findsOneWidget);
     final lineId = (await tester.runAsync(() => store.all('order_line')))!.single.id;
 
-    // one more Fresh lime on the same line, a new Mint tea, Update Order
+    // one more Fresh lime on the same line, a new Mint tea and a new Fresh lime (each tap is its own
+    // line on top while editing), AED 5 delivery charge, Update Order
     await tester.tap(find.byKey(Key('plus-$lineId')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('product-p2')));
     await tester.pumpAndSettle();
-    expect(find.text('items(4)'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('product-p1')));
+    await tester.pumpAndSettle();
+    expect(find.text('items(5)'), findsOneWidget);
+    expect(find.text('Delivery charge'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('deliveryChargeEdit')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).last, '5');
+    await tester.tap(find.text('OK'));
+    await tester.pumpAndSettle();
+    expect(find.text('AED 42.00'), findsOneWidget); // 3 x 8 + 5 + 8 + 5 delivery
     await tester.tap(find.byKey(const Key('placeOrder')));
     await settle();
     expect(router0().state.uri.toString(), '/orders?channel=TAKEAWAY');
 
     final lines = (await tester.runAsync(() => store.all('order_line')))!;
     expect(
-      {for (final l in lines) l.data['name_snapshot']: l.data['qty_milli']},
-      {'Fresh lime': 3000, 'Mint tea': 1000},
+      [for (final l in lines) (l.data['name_snapshot'], l.data['qty_milli'])]..sort((a, b) => '$a'.compareTo('$b')),
+      [('Fresh lime', 1000), ('Fresh lime', 3000), ('Mint tea', 1000)],
     );
-    expect((await tester.runAsync(() => store.find('orders', order.id)))!.data['total_minor'], 2900);
+    expect((await tester.runAsync(() => store.find('orders', order.id)))!.data['total_minor'], 4200);
+    final reopened = await tester.runAsync(() => sl<CheckoutService>().loadOrderCart(order.id));
+    expect(reopened!.deliveryChargeMinor, 500);
     final kots = [for (final k in (await tester.runAsync(() => store.all('kot')))!) k.data['kind']];
     expect(kots, ['NEW', 'NEW_ITEMS']);
 

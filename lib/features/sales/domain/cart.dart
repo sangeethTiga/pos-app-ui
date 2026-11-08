@@ -93,6 +93,9 @@ abstract class Cart with _$Cart {
     /// Order discount in basis points (1000 = 10 %), 0 = none.
     @Default(0) int discountBp,
 
+    /// Delivery charge as entered (VAT included when prices include VAT), 0 = none.
+    @Default(0) int deliveryChargeMinor,
+
     /// Recalled from Held Orders.
     String? heldCartId,
   }) = _Cart;
@@ -137,6 +140,7 @@ abstract class Cart with _$Cart {
     'partner_order_no': partnerOrderNo,
     'kitchen_note': kitchenNote,
     'discount_bp': discountBp,
+    'delivery_charge_minor': deliveryChargeMinor,
   };
 
   factory Cart.fromMap(Map<String, dynamic> j) => Cart(
@@ -159,5 +163,6 @@ abstract class Cart with _$Cart {
     partnerOrderNo: j['partner_order_no'] as String?,
     kitchenNote: j['kitchen_note'] as String?,
     discountBp: (j['discount_bp'] as num?)?.toInt() ?? 0,
+    deliveryChargeMinor: (j['delivery_charge_minor'] as num?)?.toInt() ?? 0,
   );
 }

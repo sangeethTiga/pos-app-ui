@@ -19,6 +19,7 @@ import '../../data/home_repository.dart';
 import '../../domain/cart.dart';
 import '../../domain/checkout_service.dart';
 import '../../domain/order_service.dart';
+import '../../domain/pricing_engine.dart';
 import '../cubit/sell_cubit.dart';
 import '../widgets/home_dialogs.dart';
 import '../widgets/payment_dialog.dart';
@@ -177,6 +178,7 @@ class _SellPageState extends State<SellPage> {
       onHold: () => cubit.hold(user.id),
       onQuick: () => _quickOrder(s, cubit),
       onPlace: () => _place(cubit),
+      onDeliveryCharge: () => _deliveryCharge(s, cubit),
     );
 
     if (w < 700) {
@@ -251,6 +253,7 @@ class _SellPageState extends State<SellPage> {
             onHold: () => cubit.hold(user.id),
             onQuick: () => _quickOrder(s, cubit),
             onPlace: () => _place(cubit),
+            onDeliveryCharge: () => _deliveryCharge(s, cubit),
           ),
         ),
       ),
@@ -316,6 +319,11 @@ class _SellPageState extends State<SellPage> {
     if (!user.can('discount.apply')) return _toast('${user.name} may not give discounts.');
     final bp = await showDiscount(context, currentBp: s.cart.discountBp, maxBp: user.maxDiscountBp);
     if (bp != null) cubit.discount(bp);
+  }
+
+  Future<void> _deliveryCharge(SellState s, SellCubit cubit) async {
+    final minor = await askAmount(context, title: 'Delivery charge', decimals: t.currencyDecimals);
+    if (minor != null) cubit.deliveryCharge(minor);
   }
 
   Future<void> _openFood(SellCubit cubit) async {
@@ -1010,6 +1018,7 @@ class _CartPanel extends StatelessWidget {
     required this.onHold,
     required this.onQuick,
     required this.onPlace,
+    required this.onDeliveryCharge,
   });
   final SellState state;
   final TerminalContext t;
@@ -1017,7 +1026,7 @@ class _CartPanel extends StatelessWidget {
   final ValueChanged<String> onChannel;
   final ValueChanged<CartLine> onEditLine;
   final void Function(String key, int delta) onQty;
-  final VoidCallback onHold, onQuick, onPlace;
+  final VoidCallback onHold, onQuick, onPlace, onDeliveryCharge;
 
   @override
   Widget build(BuildContext context) {
@@ -1028,8 +1037,12 @@ class _CartPanel extends StatelessWidget {
     final vatRate = cart.lines.isEmpty ? 0 : cart.lines.first.taxRateBp;
     final inclusive = cart.lines.isEmpty || cart.lines.first.priceIncludesTax;
     final editing = cart.existingOrderId != null;
+    final showDelivery = editing || ch == Channel.homeDelivery || ch == Channel.partner;
+    final service = (priced?.charges ?? const <PricedCharge>[])
+        .where((c) => c.code == 'SERVICE')
+        .fold(0, (sum, c) => sum + c.net + c.tax);
     return Container(
-      color: Colors.white,
+      color: editing ? HomeColors.page : Colors.white,
       padding: const EdgeInsets.fromLTRB(8, 10, 8, 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1154,13 +1167,14 @@ class _CartPanel extends StatelessWidget {
             child: Column(
               children: [
                 _sum('Subtotal', t.money(priced?.subtotalMinor ?? 0)),
+                if (showDelivery) _delivery(cart.deliveryChargeMinor),
                 Divider(color: Colors.grey.shade400, height: 20),
                 if ((priced?.discountMinor ?? 0) > 0)
                   _sum(
                     'Discount (${(cart.discountBp / 100).toStringAsFixed(cart.discountBp % 100 == 0 ? 0 : 2)}%)',
                     '-${t.money(priced!.discountMinor)}',
                   ),
-                if ((priced?.chargeMinor ?? 0) > 0) _sum('Service charge', t.money(priced!.chargeMinor)),
+                if (service > 0) _sum('Service charge', t.money(service)),
                 _sum('Subtotal before VAT', t.money((priced?.totalMinor ?? 0) - (priced?.taxMinor ?? 0))),
                 _sum(
                   'VAT ${inclusive ? 'inclusive' : 'exclusive'} (${(vatRate / 100).toStringAsFixed(vatRate % 100 == 0 ? 0 : 2)}%)',
@@ -1232,6 +1246,52 @@ class _CartPanel extends StatelessWidget {
     ].join(' · '),
     _ => c.kitchenNote != null ? 'Note: ${c.kitchenNote}' : null,
   };
+
+  /// "Delivery charge  Edit✎        0.00" in red.
+  Widget _delivery(int minor) {
+    const red = TextStyle(fontSize: 26, color: Color(0xFFE5574B));
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        children: [
+          Expanded(
+            child: Row(
+              children: [
+                const Flexible(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text('Delivery charge', style: red),
+                  ),
+                ),
+                const SizedBox(width: 22),
+                InkWell(
+                  key: const Key('deliveryChargeEdit'),
+                  onTap: onDeliveryCharge,
+                  borderRadius: BorderRadius.circular(5),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      border: Border.all(color: Colors.grey.shade300),
+                      borderRadius: BorderRadius.circular(5),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text('Edit', style: TextStyle(fontSize: 19, color: Color(0xFF4CAF50))),
+                        Icon(Icons.edit, size: 18, color: Colors.black87),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Text(t.money(minor), style: red),
+        ],
+      ),
+    );
+  }
 
   Widget _sum(String a, String b, {bool bold = false}) {
     final style = TextStyle(fontSize: bold ? 28 : 26, fontWeight: bold ? FontWeight.bold : FontWeight.w400);
@@ -1317,8 +1377,8 @@ class _LineRow extends StatelessWidget {
         margin: const EdgeInsets.only(top: 8),
         padding: const EdgeInsets.fromLTRB(18, 8, 14, 8),
         decoration: BoxDecoration(
-          color: selected ? HomeColors.blue : HomeColors.page,
-          borderRadius: BorderRadius.circular(4),
+          color: selected ? HomeColors.blue : Colors.white,
+          borderRadius: BorderRadius.circular(8),
         ),
         child: Row(
           children: [

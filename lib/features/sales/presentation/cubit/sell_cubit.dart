@@ -138,6 +138,30 @@ class SellCubit extends Cubit<SellState> {
 
   void add(Product p) {
     if (p.outOfStock) return _err('${p.name} is out of stock');
+    if (state.cart.existingOrderId != null) {
+      // Editing an order: every tap is a new line on top (lines already sent to the kitchen are not
+      // merged into), and it becomes the selected line.
+      final key = const Uuid().v4();
+      emit(state.copyWith(selectedKey: key));
+      return _setCart(
+        state.cart.copyWith(
+          lines: [
+            CartLine(
+              key: key,
+              productId: p.id,
+              name: p.name,
+              unitPriceMinor: p.priceMinor,
+              qtyMilli: 1000,
+              taxRateBp: p.taxRateBp,
+              priceIncludesTax: p.priceIncludesTax,
+              trackStock: p.trackStock,
+              kitchenStationId: p.kitchenStationId,
+            ),
+            ...state.cart.lines,
+          ],
+        ),
+      );
+    }
     final lines = [...state.cart.lines];
     final i = lines.indexWhere((l) => l.productId == p.id && l.note == null);
     if (i >= 0) {
@@ -223,6 +247,9 @@ class SellCubit extends Cubit<SellState> {
   void kitchenNote(String note) => _setCart(state.cart.copyWith(kitchenNote: note.trim().isEmpty ? null : note.trim()));
 
   void discount(int bp) => _setCart(state.cart.copyWith(discountBp: bp));
+
+  /// Delivery charge as the guest pays it (minor units), 0 removes it.
+  void deliveryCharge(int minor) => _setCart(state.cart.copyWith(deliveryChargeMinor: minor < 0 ? 0 : minor));
 
   // ---- order type ---------------------------------------------------------------------------
 

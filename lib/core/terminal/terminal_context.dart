@@ -14,6 +14,8 @@ class TerminalContext {
     required this.timezone,
     required this.businessDayCutoff,
     required this.pricesIncludeTax,
+    this.deviceType = 'CASHIER',
+    this.kioskId,
   });
 
   final String deviceId;
@@ -30,6 +32,14 @@ class TerminalContext {
   /// "04:00": sales before this local time belong to the previous business date.
   final String businessDayCutoff;
   final bool pricesIncludeTax;
+
+  /// CASHIER or CAPTAIN (registration screen).
+  final String deviceType;
+
+  /// Kiosk this terminal takes orders for; stamped on its orders.
+  final String? kioskId;
+
+  bool get isCaptain => deviceType == 'CAPTAIN';
 
   static bool _tzReady = false;
 

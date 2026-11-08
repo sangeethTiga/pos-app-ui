@@ -28,6 +28,23 @@ Map<String, dynamic> _$StoreModelToJson(_StoreModel instance) => <String, dynami
   'prices_include_tax': instance.pricesIncludeTax,
 };
 
+_DeviceProfileModel _$DeviceProfileModelFromJson(Map<String, dynamic> json) => _DeviceProfileModel(
+  deviceType: json['device_type'] as String? ?? 'CASHIER',
+  hardwareId: json['hardware_id'] as String?,
+  kioskId: json['kiosk_id'] as String?,
+  kioskName: json['kiosk_name'] as String?,
+  settings:
+      (json['settings'] as Map<String, dynamic>?)?.map((k, e) => MapEntry(k, e as bool)) ?? const <String, bool>{},
+);
+
+Map<String, dynamic> _$DeviceProfileModelToJson(_DeviceProfileModel instance) => <String, dynamic>{
+  'device_type': instance.deviceType,
+  'hardware_id': ?instance.hardwareId,
+  'kiosk_id': ?instance.kioskId,
+  'kiosk_name': ?instance.kioskName,
+  'settings': instance.settings,
+};
+
 _DeviceRegistrationModel _$DeviceRegistrationModelFromJson(Map<String, dynamic> json) => _DeviceRegistrationModel(
   deviceId: json['device_id'] as String,
   deviceCode: json['device_code'] as String,
@@ -40,6 +57,7 @@ _DeviceRegistrationModel _$DeviceRegistrationModelFromJson(Map<String, dynamic> 
   refreshToken: json['refresh_token'] as String,
   refreshTokenExpiresAt: DateTime.parse(json['refresh_token_expires_at'] as String),
   serverTime: json['server_time'] == null ? null : DateTime.parse(json['server_time'] as String),
+  profile: json['profile'] == null ? null : DeviceProfileModel.fromJson(json['profile'] as Map<String, dynamic>),
 );
 
 Map<String, dynamic> _$DeviceRegistrationModelToJson(_DeviceRegistrationModel instance) => <String, dynamic>{
@@ -54,4 +72,5 @@ Map<String, dynamic> _$DeviceRegistrationModelToJson(_DeviceRegistrationModel in
   'refresh_token': instance.refreshToken,
   'refresh_token_expires_at': instance.refreshTokenExpiresAt.toIso8601String(),
   'server_time': ?instance.serverTime?.toIso8601String(),
+  'profile': ?instance.profile?.toJson(),
 };

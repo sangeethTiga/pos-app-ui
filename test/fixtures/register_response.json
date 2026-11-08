@@ -18,5 +18,12 @@
   "access_token_expires_at": "2026-11-09T07:00:00.000Z",
   "refresh_token": "refresh-token-value",
   "refresh_token_expires_at": "2026-12-08T07:00:00.000Z",
-  "server_time": "2026-11-08T07:00:00.000Z"
+  "server_time": "2026-11-08T07:00:00.000Z",
+  "profile": {
+    "device_type": "CAPTAIN",
+    "hardware_id": "4C05435D-18E8-5BC2-BA98-6A4C4CFE79BB",
+    "kiosk_id": "019a5c3e-6a10-7f3d-8b2c-1d2e3f4a5b70",
+    "kiosk_name": "U Kiosk",
+    "settings": {"kiosk_wise_order_listing": true, "delivery_manager_pos": true, "settle_assigned_orders_only": false}
+  }
 }

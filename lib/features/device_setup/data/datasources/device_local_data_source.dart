@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:uuid/uuid.dart';
+
 import '../../../../core/network/device_credentials_provider.dart';
 import '../../../../core/storage/secure_store.dart';
 import '../models/device_registration_model.dart';
@@ -12,6 +14,7 @@ class DeviceLocalDataSource implements DeviceCredentialsProvider {
   DeviceLocalDataSource(this._store);
 
   static const _key = 'device_session_v1';
+  static const _hardwareKey = 'terminal_hardware_id';
 
   final SecureStore _store;
 
@@ -29,6 +32,19 @@ class DeviceLocalDataSource implements DeviceCredentialsProvider {
   Future<void> save(DeviceRegistrationModel model) => _store.write(_key, jsonEncode(model.toJson()));
 
   Future<void> clear() => _store.delete(_key);
+
+  /// This terminal's own id: created once, kept across re-pairing (shown on the registration screen).
+  Future<String> hardwareId() async {
+    final existing = await _store.read(_hardwareKey);
+    if (existing != null && existing.isNotEmpty) return existing;
+    final id = const Uuid().v4().toUpperCase();
+    try {
+      await _store.write(_hardwareKey, id);
+    } on Object {
+      // Storage refused: still usable for this registration; a new id is made next time.
+    }
+    return id;
+  }
 
   @override
   Future<({String accessToken, String signingSecret})?> deviceCredentials() async {

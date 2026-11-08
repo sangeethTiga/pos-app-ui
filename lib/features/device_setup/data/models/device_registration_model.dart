@@ -34,6 +34,32 @@ abstract class StoreModel with _$StoreModel {
   );
 }
 
+/// `profile` of `POST /devices/register` and `GET /devices/me`.
+@freezed
+abstract class DeviceProfileModel with _$DeviceProfileModel {
+  const DeviceProfileModel._();
+
+  const factory DeviceProfileModel({
+    @Default('CASHIER') String deviceType,
+    String? hardwareId,
+    String? kioskId,
+    String? kioskName,
+    @Default(<String, bool>{}) Map<String, bool> settings,
+  }) = _DeviceProfileModel;
+
+  factory DeviceProfileModel.fromJson(Map<String, dynamic> json) => _$DeviceProfileModelFromJson(json);
+
+  DeviceProfile toEntity() => DeviceProfile(
+    deviceType: DeviceType.fromWire(deviceType),
+    hardwareId: hardwareId,
+    kioskId: kioskId,
+    kioskName: kioskName,
+    kioskWiseOrderListing: settings['kiosk_wise_order_listing'] ?? false,
+    deliveryManagerPos: settings['delivery_manager_pos'] ?? false,
+    settleAssignedOrdersOnly: settings['settle_assigned_orders_only'] ?? false,
+  );
+}
+
 /// `201` body of `POST /devices/register`. Also the format kept in secure storage.
 @freezed
 abstract class DeviceRegistrationModel with _$DeviceRegistrationModel {
@@ -51,6 +77,9 @@ abstract class DeviceRegistrationModel with _$DeviceRegistrationModel {
     required String refreshToken,
     required DateTime refreshTokenExpiresAt,
     DateTime? serverTime,
+
+    /// Missing in sessions stored before the registration screen had roles: cashier.
+    DeviceProfileModel? profile,
   }) = _DeviceRegistrationModel;
 
   factory DeviceRegistrationModel.fromJson(Map<String, dynamic> json) => _$DeviceRegistrationModelFromJson(json);
@@ -66,5 +95,6 @@ abstract class DeviceRegistrationModel with _$DeviceRegistrationModel {
     refreshToken: refreshToken,
     refreshTokenExpiresAt: refreshTokenExpiresAt,
     signingSecret: signingSecret,
+    profile: profile?.toEntity() ?? const DeviceProfile(),
   );
 }

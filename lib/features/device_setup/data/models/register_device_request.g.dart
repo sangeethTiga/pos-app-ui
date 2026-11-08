@@ -13,6 +13,10 @@ _RegisterDeviceRequest _$RegisterDeviceRequestFromJson(Map<String, dynamic> json
   platform: json['platform'] as String,
   appVersion: json['app_version'] as String,
   gatewayPriority: (json['gateway_priority'] as num?)?.toInt(),
+  deviceType: json['device_type'] as String?,
+  hardwareId: json['hardware_id'] as String?,
+  kioskId: json['kiosk_id'] as String?,
+  settings: (json['settings'] as Map<String, dynamic>?)?.map((k, e) => MapEntry(k, e as bool)),
 );
 
 Map<String, dynamic> _$RegisterDeviceRequestToJson(_RegisterDeviceRequest instance) => <String, dynamic>{
@@ -22,4 +26,8 @@ Map<String, dynamic> _$RegisterDeviceRequestToJson(_RegisterDeviceRequest instan
   'platform': instance.platform,
   'app_version': instance.appVersion,
   'gateway_priority': ?instance.gatewayPriority,
+  'device_type': ?instance.deviceType,
+  'hardware_id': ?instance.hardwareId,
+  'kiosk_id': ?instance.kioskId,
+  'settings': ?instance.settings,
 };

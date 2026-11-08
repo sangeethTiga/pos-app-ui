@@ -7,6 +7,7 @@ import '../../features/device_setup/data/datasources/device_remote_data_source.d
 import '../../features/device_setup/data/repositories/device_repository_impl.dart';
 import '../../features/device_setup/domain/repositories/device_repository.dart';
 import '../../features/device_setup/domain/usecases/get_current_session.dart';
+import '../../features/device_setup/domain/usecases/preview_registration.dart';
 import '../../features/device_setup/domain/usecases/register_device.dart';
 import '../../features/device_setup/presentation/bloc/device_setup_bloc.dart';
 import '../../features/home/presentation/cubit/home_cubit.dart';
@@ -15,7 +16,7 @@ import '../../features/sales/domain/checkout_service.dart';
 import '../../features/sales/presentation/cubit/sell_cubit.dart';
 import '../../features/shift/domain/shift_service.dart';
 import '../../features/staff/data/staff_repository.dart';
-import '../../features/staff/presentation/pin_login_cubit.dart';
+import '../../features/staff/presentation/login_cubit.dart';
 import '../../features/sync/data/realtime_client.dart';
 import '../../features/sync/data/sync_api.dart';
 import '../../features/sync/domain/sync_engine.dart';
@@ -76,7 +77,8 @@ Future<void> configureDependencies({AppConfig? config, SecureStore? secureStore,
     )
     ..registerFactory(() => RegisterDevice(sl<DeviceRepository>()))
     ..registerFactory(() => GetCurrentSession(sl<DeviceRepository>()))
-    ..registerFactory(() => DeviceSetupBloc(sl<RegisterDevice>(), sl<GetCurrentSession>()));
+    ..registerFactory(() => PreviewRegistration(sl<DeviceRepository>()))
+    ..registerFactory(() => DeviceSetupBloc(sl<RegisterDevice>(), sl<GetCurrentSession>(), sl<PreviewRegistration>()));
 
   // ---- feature: home -------------------------------------------------------------------
   sl.registerFactory(() => HomeCubit(sl<DeviceRepository>()));
@@ -96,7 +98,15 @@ Future<void> configureDependencies({AppConfig? config, SecureStore? secureStore,
     ..registerLazySingleton(() => CatalogueRepository(sl<LocalStore>()))
     ..registerLazySingleton(StaffSession.new)
     ..registerLazySingleton(() => StaffRepository(sl<LocalStore>(), sl<SecureStore>()))
-    ..registerFactory(() => PinLoginCubit(sl<StaffRepository>(), sl<StaffSession>()))
+    ..registerFactory(
+      () => LoginCubit(
+        sl<StaffRepository>(),
+        sl<StaffSession>(),
+        sl<ShiftService>(),
+        sl<LocalStore>(),
+        sl<TerminalContextHolder>(),
+      ),
+    )
     ..registerLazySingleton(() => ShiftService(sl<LocalStore>(), sl<TerminalContextHolder>(), _afterCommit))
     ..registerLazySingleton(
       () => CheckoutService(sl<LocalStore>(), sl<TerminalContextHolder>(), sl<ShiftService>(), _afterCommit),

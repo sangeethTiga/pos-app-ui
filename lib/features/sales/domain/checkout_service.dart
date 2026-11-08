@@ -128,6 +128,7 @@ class CheckoutService {
         'business_day_id': dayId,
         'business_date': businessDate,
         'shift_id': shift.id,
+        'kiosk_id': ?_ctx.ctx.kioskId,
         'order_no': orderNo,
         'token_no': tokenNo,
         'order_type': cart.orderType,

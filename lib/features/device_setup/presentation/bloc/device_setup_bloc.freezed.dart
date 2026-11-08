@@ -56,12 +56,14 @@ extension DeviceSetupEventPatterns on DeviceSetupEvent {
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeMap<TResult extends Object?>({TResult Function( DeviceSetupStarted value)?  started,TResult Function( DeviceSetupSubmitted value)?  submitted,required TResult orElse(),}){
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>({TResult Function( DeviceSetupStarted value)?  started,TResult Function( DeviceSetupCodesSubmitted value)?  codesSubmitted,TResult Function( DeviceSetupRegisterSubmitted value)?  registerSubmitted,TResult Function( DeviceSetupBack value)?  back,required TResult orElse(),}){
 final _that = this;
 switch (_that) {
 case DeviceSetupStarted() when started != null:
-return started(_that);case DeviceSetupSubmitted() when submitted != null:
-return submitted(_that);case _:
+return started(_that);case DeviceSetupCodesSubmitted() when codesSubmitted != null:
+return codesSubmitted(_that);case DeviceSetupRegisterSubmitted() when registerSubmitted != null:
+return registerSubmitted(_that);case DeviceSetupBack() when back != null:
+return back(_that);case _:
   return orElse();
 
 }
@@ -79,12 +81,14 @@ return submitted(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult map<TResult extends Object?>({required TResult Function( DeviceSetupStarted value)  started,required TResult Function( DeviceSetupSubmitted value)  submitted,}){
+@optionalTypeArgs TResult map<TResult extends Object?>({required TResult Function( DeviceSetupStarted value)  started,required TResult Function( DeviceSetupCodesSubmitted value)  codesSubmitted,required TResult Function( DeviceSetupRegisterSubmitted value)  registerSubmitted,required TResult Function( DeviceSetupBack value)  back,}){
 final _that = this;
 switch (_that) {
 case DeviceSetupStarted():
-return started(_that);case DeviceSetupSubmitted():
-return submitted(_that);}
+return started(_that);case DeviceSetupCodesSubmitted():
+return codesSubmitted(_that);case DeviceSetupRegisterSubmitted():
+return registerSubmitted(_that);case DeviceSetupBack():
+return back(_that);}
 }
 /// A variant of `map` that fallback to returning `null`.
 ///
@@ -98,12 +102,14 @@ return submitted(_that);}
 /// }
 /// ```
 
-@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>({TResult? Function( DeviceSetupStarted value)?  started,TResult? Function( DeviceSetupSubmitted value)?  submitted,}){
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>({TResult? Function( DeviceSetupStarted value)?  started,TResult? Function( DeviceSetupCodesSubmitted value)?  codesSubmitted,TResult? Function( DeviceSetupRegisterSubmitted value)?  registerSubmitted,TResult? Function( DeviceSetupBack value)?  back,}){
 final _that = this;
 switch (_that) {
 case DeviceSetupStarted() when started != null:
-return started(_that);case DeviceSetupSubmitted() when submitted != null:
-return submitted(_that);case _:
+return started(_that);case DeviceSetupCodesSubmitted() when codesSubmitted != null:
+return codesSubmitted(_that);case DeviceSetupRegisterSubmitted() when registerSubmitted != null:
+return registerSubmitted(_that);case DeviceSetupBack() when back != null:
+return back(_that);case _:
   return null;
 
 }
@@ -120,11 +126,13 @@ return submitted(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function()?  started,TResult Function( String storeCode,  String registrationCode,  String deviceName)?  submitted,required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function()?  started,TResult Function( String storeCode,  String registrationCode)?  codesSubmitted,TResult Function( String deviceName,  DeviceProfile profile)?  registerSubmitted,TResult Function()?  back,required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case DeviceSetupStarted() when started != null:
-return started();case DeviceSetupSubmitted() when submitted != null:
-return submitted(_that.storeCode,_that.registrationCode,_that.deviceName);case _:
+return started();case DeviceSetupCodesSubmitted() when codesSubmitted != null:
+return codesSubmitted(_that.storeCode,_that.registrationCode);case DeviceSetupRegisterSubmitted() when registerSubmitted != null:
+return registerSubmitted(_that.deviceName,_that.profile);case DeviceSetupBack() when back != null:
+return back();case _:
   return orElse();
 
 }
@@ -142,11 +150,13 @@ return submitted(_that.storeCode,_that.registrationCode,_that.deviceName);case _
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function()  started,required TResult Function( String storeCode,  String registrationCode,  String deviceName)  submitted,}) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function()  started,required TResult Function( String storeCode,  String registrationCode)  codesSubmitted,required TResult Function( String deviceName,  DeviceProfile profile)  registerSubmitted,required TResult Function()  back,}) {final _that = this;
 switch (_that) {
 case DeviceSetupStarted():
-return started();case DeviceSetupSubmitted():
-return submitted(_that.storeCode,_that.registrationCode,_that.deviceName);}
+return started();case DeviceSetupCodesSubmitted():
+return codesSubmitted(_that.storeCode,_that.registrationCode);case DeviceSetupRegisterSubmitted():
+return registerSubmitted(_that.deviceName,_that.profile);case DeviceSetupBack():
+return back();}
 }
 /// A variant of `when` that fallback to returning `null`
 ///
@@ -160,11 +170,13 @@ return submitted(_that.storeCode,_that.registrationCode,_that.deviceName);}
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function()?  started,TResult? Function( String storeCode,  String registrationCode,  String deviceName)?  submitted,}) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function()?  started,TResult? Function( String storeCode,  String registrationCode)?  codesSubmitted,TResult? Function( String deviceName,  DeviceProfile profile)?  registerSubmitted,TResult? Function()?  back,}) {final _that = this;
 switch (_that) {
 case DeviceSetupStarted() when started != null:
-return started();case DeviceSetupSubmitted() when submitted != null:
-return submitted(_that.storeCode,_that.registrationCode,_that.deviceName);case _:
+return started();case DeviceSetupCodesSubmitted() when codesSubmitted != null:
+return codesSubmitted(_that.storeCode,_that.registrationCode);case DeviceSetupRegisterSubmitted() when registerSubmitted != null:
+return registerSubmitted(_that.deviceName,_that.profile);case DeviceSetupBack() when back != null:
+return back();case _:
   return null;
 
 }
@@ -207,47 +219,46 @@ String toString() {
 /// @nodoc
 
 
-class DeviceSetupSubmitted implements DeviceSetupEvent {
-  const DeviceSetupSubmitted({required this.storeCode, required this.registrationCode, required this.deviceName});
+class DeviceSetupCodesSubmitted implements DeviceSetupEvent {
+  const DeviceSetupCodesSubmitted({required this.storeCode, required this.registrationCode});
   
 
  final  String storeCode;
  final  String registrationCode;
- final  String deviceName;
 
 /// Create a copy of DeviceSetupEvent
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
 @pragma('vm:prefer-inline')
-$DeviceSetupSubmittedCopyWith<DeviceSetupSubmitted> get copyWith => _$DeviceSetupSubmittedCopyWithImpl<DeviceSetupSubmitted>(this, _$identity);
+$DeviceSetupCodesSubmittedCopyWith<DeviceSetupCodesSubmitted> get copyWith => _$DeviceSetupCodesSubmittedCopyWithImpl<DeviceSetupCodesSubmitted>(this, _$identity);
 
 
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is DeviceSetupSubmitted&&(identical(other.storeCode, storeCode) || other.storeCode == storeCode)&&(identical(other.registrationCode, registrationCode) || other.registrationCode == registrationCode)&&(identical(other.deviceName, deviceName) || other.deviceName == deviceName));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is DeviceSetupCodesSubmitted&&(identical(other.storeCode, storeCode) || other.storeCode == storeCode)&&(identical(other.registrationCode, registrationCode) || other.registrationCode == registrationCode));
 }
 
 
 @override
 int get hashCode {
-    return Object.hash(runtimeType,storeCode,registrationCode,deviceName);
+    return Object.hash(runtimeType,storeCode,registrationCode);
 }
 
 @override
 String toString() {
-    return 'DeviceSetupEvent.submitted(storeCode: $storeCode, registrationCode: $registrationCode, deviceName: $deviceName)';
+    return 'DeviceSetupEvent.codesSubmitted(storeCode: $storeCode, registrationCode: $registrationCode)';
 }
 
 
 }
 
 /// @nodoc
-abstract mixin class $DeviceSetupSubmittedCopyWith<$Res> implements $DeviceSetupEventCopyWith<$Res> {
-  factory $DeviceSetupSubmittedCopyWith(DeviceSetupSubmitted value, $Res Function(DeviceSetupSubmitted) _then) = _$DeviceSetupSubmittedCopyWithImpl;
+abstract mixin class $DeviceSetupCodesSubmittedCopyWith<$Res> implements $DeviceSetupEventCopyWith<$Res> {
+  factory $DeviceSetupCodesSubmittedCopyWith(DeviceSetupCodesSubmitted value, $Res Function(DeviceSetupCodesSubmitted) _then) = _$DeviceSetupCodesSubmittedCopyWithImpl;
 @useResult
 $Res call({
- String storeCode, String registrationCode, String deviceName
+ String storeCode, String registrationCode
 });
 
 
@@ -255,26 +266,136 @@ $Res call({
 
 }
 /// @nodoc
-class _$DeviceSetupSubmittedCopyWithImpl<$Res>
-    implements $DeviceSetupSubmittedCopyWith<$Res> {
-  _$DeviceSetupSubmittedCopyWithImpl(this._self, this._then);
+class _$DeviceSetupCodesSubmittedCopyWithImpl<$Res>
+    implements $DeviceSetupCodesSubmittedCopyWith<$Res> {
+  _$DeviceSetupCodesSubmittedCopyWithImpl(this._self, this._then);
 
-  final DeviceSetupSubmitted _self;
-  final $Res Function(DeviceSetupSubmitted) _then;
+  final DeviceSetupCodesSubmitted _self;
+  final $Res Function(DeviceSetupCodesSubmitted) _then;
 
 /// Create a copy of DeviceSetupEvent
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') $Res call({Object? storeCode = null,Object? registrationCode = null,Object? deviceName = null,}) {
-  return _then(DeviceSetupSubmitted(
+@pragma('vm:prefer-inline') $Res call({Object? storeCode = null,Object? registrationCode = null,}) {
+  return _then(DeviceSetupCodesSubmitted(
 storeCode: null == storeCode ? _self.storeCode : storeCode // ignore: cast_nullable_to_non_nullable
 as String,registrationCode: null == registrationCode ? _self.registrationCode : registrationCode // ignore: cast_nullable_to_non_nullable
-as String,deviceName: null == deviceName ? _self.deviceName : deviceName // ignore: cast_nullable_to_non_nullable
 as String,
   ));
 }
 
 
 }
+
+/// @nodoc
+
+
+class DeviceSetupRegisterSubmitted implements DeviceSetupEvent {
+  const DeviceSetupRegisterSubmitted({required this.deviceName, required this.profile});
+  
+
+ final  String deviceName;
+ final  DeviceProfile profile;
+
+/// Create a copy of DeviceSetupEvent
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$DeviceSetupRegisterSubmittedCopyWith<DeviceSetupRegisterSubmitted> get copyWith => _$DeviceSetupRegisterSubmittedCopyWithImpl<DeviceSetupRegisterSubmitted>(this, _$identity);
+
+
+
+@override
+bool operator ==(Object other) {
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is DeviceSetupRegisterSubmitted&&(identical(other.deviceName, deviceName) || other.deviceName == deviceName)&&(identical(other.profile, profile) || other.profile == profile));
+}
+
+
+@override
+int get hashCode {
+    return Object.hash(runtimeType,deviceName,profile);
+}
+
+@override
+String toString() {
+    return 'DeviceSetupEvent.registerSubmitted(deviceName: $deviceName, profile: $profile)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $DeviceSetupRegisterSubmittedCopyWith<$Res> implements $DeviceSetupEventCopyWith<$Res> {
+  factory $DeviceSetupRegisterSubmittedCopyWith(DeviceSetupRegisterSubmitted value, $Res Function(DeviceSetupRegisterSubmitted) _then) = _$DeviceSetupRegisterSubmittedCopyWithImpl;
+@useResult
+$Res call({
+ String deviceName, DeviceProfile profile
+});
+
+
+$DeviceProfileCopyWith<$Res> get profile;
+
+}
+/// @nodoc
+class _$DeviceSetupRegisterSubmittedCopyWithImpl<$Res>
+    implements $DeviceSetupRegisterSubmittedCopyWith<$Res> {
+  _$DeviceSetupRegisterSubmittedCopyWithImpl(this._self, this._then);
+
+  final DeviceSetupRegisterSubmitted _self;
+  final $Res Function(DeviceSetupRegisterSubmitted) _then;
+
+/// Create a copy of DeviceSetupEvent
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') $Res call({Object? deviceName = null,Object? profile = null,}) {
+  return _then(DeviceSetupRegisterSubmitted(
+deviceName: null == deviceName ? _self.deviceName : deviceName // ignore: cast_nullable_to_non_nullable
+as String,profile: null == profile ? _self.profile : profile // ignore: cast_nullable_to_non_nullable
+as DeviceProfile,
+  ));
+}
+
+/// Create a copy of DeviceSetupEvent
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$DeviceProfileCopyWith<$Res> get profile {
+  
+  return $DeviceProfileCopyWith<$Res>(_self.profile, (value) {
+    return _then(_self.copyWith(profile: value));
+  });
+}
+}
+
+/// @nodoc
+
+
+class DeviceSetupBack implements DeviceSetupEvent {
+  const DeviceSetupBack();
+  
+
+
+
+
+
+
+@override
+bool operator ==(Object other) {
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is DeviceSetupBack);
+}
+
+
+@override
+int get hashCode => runtimeType.hashCode;
+
+@override
+String toString() {
+    return 'DeviceSetupEvent.back()';
+}
+
+
+}
+
+
+
 
 /// @nodoc
 mixin _$DeviceSetupState {
@@ -320,13 +441,14 @@ extension DeviceSetupStatePatterns on DeviceSetupState {
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeMap<TResult extends Object?>({TResult Function( DeviceSetupInitial value)?  initial,TResult Function( DeviceSetupUnpaired value)?  unpaired,TResult Function( DeviceSetupSubmitting value)?  submitting,TResult Function( DeviceSetupPaired value)?  paired,TResult Function( DeviceSetupFailure value)?  failure,required TResult orElse(),}){
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>({TResult Function( DeviceSetupInitial value)?  initial,TResult Function( DeviceSetupUnpaired value)?  unpaired,TResult Function( DeviceSetupVerifying value)?  verifying,TResult Function( DeviceSetupReady value)?  ready,TResult Function( DeviceSetupPaired value)?  paired,TResult Function( DeviceSetupFailure value)?  failure,required TResult orElse(),}){
 final _that = this;
 switch (_that) {
 case DeviceSetupInitial() when initial != null:
 return initial(_that);case DeviceSetupUnpaired() when unpaired != null:
-return unpaired(_that);case DeviceSetupSubmitting() when submitting != null:
-return submitting(_that);case DeviceSetupPaired() when paired != null:
+return unpaired(_that);case DeviceSetupVerifying() when verifying != null:
+return verifying(_that);case DeviceSetupReady() when ready != null:
+return ready(_that);case DeviceSetupPaired() when paired != null:
 return paired(_that);case DeviceSetupFailure() when failure != null:
 return failure(_that);case _:
   return orElse();
@@ -346,13 +468,14 @@ return failure(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult map<TResult extends Object?>({required TResult Function( DeviceSetupInitial value)  initial,required TResult Function( DeviceSetupUnpaired value)  unpaired,required TResult Function( DeviceSetupSubmitting value)  submitting,required TResult Function( DeviceSetupPaired value)  paired,required TResult Function( DeviceSetupFailure value)  failure,}){
+@optionalTypeArgs TResult map<TResult extends Object?>({required TResult Function( DeviceSetupInitial value)  initial,required TResult Function( DeviceSetupUnpaired value)  unpaired,required TResult Function( DeviceSetupVerifying value)  verifying,required TResult Function( DeviceSetupReady value)  ready,required TResult Function( DeviceSetupPaired value)  paired,required TResult Function( DeviceSetupFailure value)  failure,}){
 final _that = this;
 switch (_that) {
 case DeviceSetupInitial():
 return initial(_that);case DeviceSetupUnpaired():
-return unpaired(_that);case DeviceSetupSubmitting():
-return submitting(_that);case DeviceSetupPaired():
+return unpaired(_that);case DeviceSetupVerifying():
+return verifying(_that);case DeviceSetupReady():
+return ready(_that);case DeviceSetupPaired():
 return paired(_that);case DeviceSetupFailure():
 return failure(_that);}
 }
@@ -368,13 +491,14 @@ return failure(_that);}
 /// }
 /// ```
 
-@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>({TResult? Function( DeviceSetupInitial value)?  initial,TResult? Function( DeviceSetupUnpaired value)?  unpaired,TResult? Function( DeviceSetupSubmitting value)?  submitting,TResult? Function( DeviceSetupPaired value)?  paired,TResult? Function( DeviceSetupFailure value)?  failure,}){
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>({TResult? Function( DeviceSetupInitial value)?  initial,TResult? Function( DeviceSetupUnpaired value)?  unpaired,TResult? Function( DeviceSetupVerifying value)?  verifying,TResult? Function( DeviceSetupReady value)?  ready,TResult? Function( DeviceSetupPaired value)?  paired,TResult? Function( DeviceSetupFailure value)?  failure,}){
 final _that = this;
 switch (_that) {
 case DeviceSetupInitial() when initial != null:
 return initial(_that);case DeviceSetupUnpaired() when unpaired != null:
-return unpaired(_that);case DeviceSetupSubmitting() when submitting != null:
-return submitting(_that);case DeviceSetupPaired() when paired != null:
+return unpaired(_that);case DeviceSetupVerifying() when verifying != null:
+return verifying(_that);case DeviceSetupReady() when ready != null:
+return ready(_that);case DeviceSetupPaired() when paired != null:
 return paired(_that);case DeviceSetupFailure() when failure != null:
 return failure(_that);case _:
   return null;
@@ -393,12 +517,13 @@ return failure(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function()?  initial,TResult Function()?  unpaired,TResult Function()?  submitting,TResult Function( DeviceSession session)?  paired,TResult Function( Failure failure)?  failure,required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function()?  initial,TResult Function()?  unpaired,TResult Function()?  verifying,TResult Function( RegistrationPreview preview,  bool submitting,  Failure? failure)?  ready,TResult Function( DeviceSession session)?  paired,TResult Function( Failure failure)?  failure,required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case DeviceSetupInitial() when initial != null:
 return initial();case DeviceSetupUnpaired() when unpaired != null:
-return unpaired();case DeviceSetupSubmitting() when submitting != null:
-return submitting();case DeviceSetupPaired() when paired != null:
+return unpaired();case DeviceSetupVerifying() when verifying != null:
+return verifying();case DeviceSetupReady() when ready != null:
+return ready(_that.preview,_that.submitting,_that.failure);case DeviceSetupPaired() when paired != null:
 return paired(_that.session);case DeviceSetupFailure() when failure != null:
 return failure(_that.failure);case _:
   return orElse();
@@ -418,12 +543,13 @@ return failure(_that.failure);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function()  initial,required TResult Function()  unpaired,required TResult Function()  submitting,required TResult Function( DeviceSession session)  paired,required TResult Function( Failure failure)  failure,}) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function()  initial,required TResult Function()  unpaired,required TResult Function()  verifying,required TResult Function( RegistrationPreview preview,  bool submitting,  Failure? failure)  ready,required TResult Function( DeviceSession session)  paired,required TResult Function( Failure failure)  failure,}) {final _that = this;
 switch (_that) {
 case DeviceSetupInitial():
 return initial();case DeviceSetupUnpaired():
-return unpaired();case DeviceSetupSubmitting():
-return submitting();case DeviceSetupPaired():
+return unpaired();case DeviceSetupVerifying():
+return verifying();case DeviceSetupReady():
+return ready(_that.preview,_that.submitting,_that.failure);case DeviceSetupPaired():
 return paired(_that.session);case DeviceSetupFailure():
 return failure(_that.failure);}
 }
@@ -439,12 +565,13 @@ return failure(_that.failure);}
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function()?  initial,TResult? Function()?  unpaired,TResult? Function()?  submitting,TResult? Function( DeviceSession session)?  paired,TResult? Function( Failure failure)?  failure,}) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function()?  initial,TResult? Function()?  unpaired,TResult? Function()?  verifying,TResult? Function( RegistrationPreview preview,  bool submitting,  Failure? failure)?  ready,TResult? Function( DeviceSession session)?  paired,TResult? Function( Failure failure)?  failure,}) {final _that = this;
 switch (_that) {
 case DeviceSetupInitial() when initial != null:
 return initial();case DeviceSetupUnpaired() when unpaired != null:
-return unpaired();case DeviceSetupSubmitting() when submitting != null:
-return submitting();case DeviceSetupPaired() when paired != null:
+return unpaired();case DeviceSetupVerifying() when verifying != null:
+return verifying();case DeviceSetupReady() when ready != null:
+return ready(_that.preview,_that.submitting,_that.failure);case DeviceSetupPaired() when paired != null:
 return paired(_that.session);case DeviceSetupFailure() when failure != null:
 return failure(_that.failure);case _:
   return null;
@@ -521,8 +648,8 @@ String toString() {
 /// @nodoc
 
 
-class DeviceSetupSubmitting implements DeviceSetupState {
-  const DeviceSetupSubmitting();
+class DeviceSetupVerifying implements DeviceSetupState {
+  const DeviceSetupVerifying();
   
 
 
@@ -532,7 +659,7 @@ class DeviceSetupSubmitting implements DeviceSetupState {
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is DeviceSetupSubmitting);
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is DeviceSetupVerifying);
 }
 
 
@@ -541,7 +668,7 @@ int get hashCode => runtimeType.hashCode;
 
 @override
 String toString() {
-    return 'DeviceSetupState.submitting()';
+    return 'DeviceSetupState.verifying()';
 }
 
 
@@ -549,6 +676,99 @@ String toString() {
 
 
 
+
+/// @nodoc
+
+
+class DeviceSetupReady implements DeviceSetupState {
+  const DeviceSetupReady(this.preview, {this.submitting = false, this.failure});
+  
+
+ final  RegistrationPreview preview;
+@JsonKey() final  bool submitting;
+ final  Failure? failure;
+
+/// Create a copy of DeviceSetupState
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$DeviceSetupReadyCopyWith<DeviceSetupReady> get copyWith => _$DeviceSetupReadyCopyWithImpl<DeviceSetupReady>(this, _$identity);
+
+
+
+@override
+bool operator ==(Object other) {
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is DeviceSetupReady&&(identical(other.preview, preview) || other.preview == preview)&&(identical(other.submitting, submitting) || other.submitting == submitting)&&(identical(other.failure, failure) || other.failure == failure));
+}
+
+
+@override
+int get hashCode {
+    return Object.hash(runtimeType,preview,submitting,failure);
+}
+
+@override
+String toString() {
+    return 'DeviceSetupState.ready(preview: $preview, submitting: $submitting, failure: $failure)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $DeviceSetupReadyCopyWith<$Res> implements $DeviceSetupStateCopyWith<$Res> {
+  factory $DeviceSetupReadyCopyWith(DeviceSetupReady value, $Res Function(DeviceSetupReady) _then) = _$DeviceSetupReadyCopyWithImpl;
+@useResult
+$Res call({
+ RegistrationPreview preview, bool submitting, Failure? failure
+});
+
+
+$RegistrationPreviewCopyWith<$Res> get preview;$FailureCopyWith<$Res>? get failure;
+
+}
+/// @nodoc
+class _$DeviceSetupReadyCopyWithImpl<$Res>
+    implements $DeviceSetupReadyCopyWith<$Res> {
+  _$DeviceSetupReadyCopyWithImpl(this._self, this._then);
+
+  final DeviceSetupReady _self;
+  final $Res Function(DeviceSetupReady) _then;
+
+/// Create a copy of DeviceSetupState
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') $Res call({Object? preview = null,Object? submitting = null,Object? failure = freezed,}) {
+  return _then(DeviceSetupReady(
+null == preview ? _self.preview : preview // ignore: cast_nullable_to_non_nullable
+as RegistrationPreview,submitting: null == submitting ? _self.submitting : submitting // ignore: cast_nullable_to_non_nullable
+as bool,failure: freezed == failure ? _self.failure : failure // ignore: cast_nullable_to_non_nullable
+as Failure?,
+  ));
+}
+
+/// Create a copy of DeviceSetupState
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$RegistrationPreviewCopyWith<$Res> get preview {
+  
+  return $RegistrationPreviewCopyWith<$Res>(_self.preview, (value) {
+    return _then(_self.copyWith(preview: value));
+  });
+}/// Create a copy of DeviceSetupState
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$FailureCopyWith<$Res>? get failure {
+    if (_self.failure == null) {
+    return null;
+  }
+
+  return $FailureCopyWith<$Res>(_self.failure!, (value) {
+    return _then(_self.copyWith(failure: value));
+  });
+}
+}
 
 /// @nodoc
 

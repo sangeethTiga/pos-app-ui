@@ -298,10 +298,850 @@ as bool,
 }
 
 /// @nodoc
+mixin _$DeviceProfile {
+
+ DeviceType get deviceType;/// This terminal's own id (shown with a copy button on the registration screen).
+ String? get hardwareId; String? get kioskId; String? get kioskName; bool get kioskWiseOrderListing; bool get deliveryManagerPos; bool get settleAssignedOrdersOnly;
+/// Create a copy of DeviceProfile
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$DeviceProfileCopyWith<DeviceProfile> get copyWith => _$DeviceProfileCopyWithImpl<DeviceProfile>(this as DeviceProfile, _$identity);
+
+
+
+@override
+bool operator ==(Object other) {
+  final _this = this as DeviceProfile;
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is DeviceProfile&&(identical(other.deviceType, _this.deviceType) || other.deviceType == _this.deviceType)&&(identical(other.hardwareId, _this.hardwareId) || other.hardwareId == _this.hardwareId)&&(identical(other.kioskId, _this.kioskId) || other.kioskId == _this.kioskId)&&(identical(other.kioskName, _this.kioskName) || other.kioskName == _this.kioskName)&&(identical(other.kioskWiseOrderListing, _this.kioskWiseOrderListing) || other.kioskWiseOrderListing == _this.kioskWiseOrderListing)&&(identical(other.deliveryManagerPos, _this.deliveryManagerPos) || other.deliveryManagerPos == _this.deliveryManagerPos)&&(identical(other.settleAssignedOrdersOnly, _this.settleAssignedOrdersOnly) || other.settleAssignedOrdersOnly == _this.settleAssignedOrdersOnly));
+}
+
+
+@override
+int get hashCode {
+  final _this = this as DeviceProfile;
+  return Object.hash(runtimeType,_this.deviceType,_this.hardwareId,_this.kioskId,_this.kioskName,_this.kioskWiseOrderListing,_this.deliveryManagerPos,_this.settleAssignedOrdersOnly);
+}
+
+@override
+String toString() {
+  final _this = this as DeviceProfile;
+  return 'DeviceProfile(deviceType: ${_this.deviceType}, hardwareId: ${_this.hardwareId}, kioskId: ${_this.kioskId}, kioskName: ${_this.kioskName}, kioskWiseOrderListing: ${_this.kioskWiseOrderListing}, deliveryManagerPos: ${_this.deliveryManagerPos}, settleAssignedOrdersOnly: ${_this.settleAssignedOrdersOnly})';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $DeviceProfileCopyWith<$Res>  {
+  factory $DeviceProfileCopyWith(DeviceProfile value, $Res Function(DeviceProfile) _then) = _$DeviceProfileCopyWithImpl;
+@useResult
+$Res call({
+ DeviceType deviceType, String? hardwareId, String? kioskId, String? kioskName, bool kioskWiseOrderListing, bool deliveryManagerPos, bool settleAssignedOrdersOnly
+});
+
+
+
+
+}
+/// @nodoc
+class _$DeviceProfileCopyWithImpl<$Res>
+    implements $DeviceProfileCopyWith<$Res> {
+  _$DeviceProfileCopyWithImpl(this._self, this._then);
+
+  final DeviceProfile _self;
+  final $Res Function(DeviceProfile) _then;
+
+/// Create a copy of DeviceProfile
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') @override $Res call({Object? deviceType = null,Object? hardwareId = freezed,Object? kioskId = freezed,Object? kioskName = freezed,Object? kioskWiseOrderListing = null,Object? deliveryManagerPos = null,Object? settleAssignedOrdersOnly = null,}) {
+  return _then(DeviceProfile(
+deviceType: null == deviceType ? _self.deviceType : deviceType // ignore: cast_nullable_to_non_nullable
+as DeviceType,hardwareId: freezed == hardwareId ? _self.hardwareId : hardwareId // ignore: cast_nullable_to_non_nullable
+as String?,kioskId: freezed == kioskId ? _self.kioskId : kioskId // ignore: cast_nullable_to_non_nullable
+as String?,kioskName: freezed == kioskName ? _self.kioskName : kioskName // ignore: cast_nullable_to_non_nullable
+as String?,kioskWiseOrderListing: null == kioskWiseOrderListing ? _self.kioskWiseOrderListing : kioskWiseOrderListing // ignore: cast_nullable_to_non_nullable
+as bool,deliveryManagerPos: null == deliveryManagerPos ? _self.deliveryManagerPos : deliveryManagerPos // ignore: cast_nullable_to_non_nullable
+as bool,settleAssignedOrdersOnly: null == settleAssignedOrdersOnly ? _self.settleAssignedOrdersOnly : settleAssignedOrdersOnly // ignore: cast_nullable_to_non_nullable
+as bool,
+  ));
+}
+
+}
+
+
+/// Adds pattern-matching-related methods to [DeviceProfile].
+extension DeviceProfilePatterns on DeviceProfile {
+/// A variant of `map` that fallback to returning `orElse`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _DeviceProfile value)?  $default,{required TResult orElse(),}){
+final _that = this;
+switch (_that) {
+case _DeviceProfile() when $default != null:
+return $default(_that);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// Callbacks receives the raw object, upcasted.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case final Subclass2 value:
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _DeviceProfile value)  $default,){
+final _that = this;
+switch (_that) {
+case _DeviceProfile():
+return $default(_that);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `map` that fallback to returning `null`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _DeviceProfile value)?  $default,){
+final _that = this;
+switch (_that) {
+case _DeviceProfile() when $default != null:
+return $default(_that);case _:
+  return null;
+
+}
+}
+/// A variant of `when` that fallback to an `orElse` callback.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( DeviceType deviceType,  String? hardwareId,  String? kioskId,  String? kioskName,  bool kioskWiseOrderListing,  bool deliveryManagerPos,  bool settleAssignedOrdersOnly)?  $default,{required TResult orElse(),}) {final _that = this;
+switch (_that) {
+case _DeviceProfile() when $default != null:
+return $default(_that.deviceType,_that.hardwareId,_that.kioskId,_that.kioskName,_that.kioskWiseOrderListing,_that.deliveryManagerPos,_that.settleAssignedOrdersOnly);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// As opposed to `map`, this offers destructuring.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case Subclass2(:final field2):
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( DeviceType deviceType,  String? hardwareId,  String? kioskId,  String? kioskName,  bool kioskWiseOrderListing,  bool deliveryManagerPos,  bool settleAssignedOrdersOnly)  $default,) {final _that = this;
+switch (_that) {
+case _DeviceProfile():
+return $default(_that.deviceType,_that.hardwareId,_that.kioskId,_that.kioskName,_that.kioskWiseOrderListing,_that.deliveryManagerPos,_that.settleAssignedOrdersOnly);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `when` that fallback to returning `null`
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( DeviceType deviceType,  String? hardwareId,  String? kioskId,  String? kioskName,  bool kioskWiseOrderListing,  bool deliveryManagerPos,  bool settleAssignedOrdersOnly)?  $default,) {final _that = this;
+switch (_that) {
+case _DeviceProfile() when $default != null:
+return $default(_that.deviceType,_that.hardwareId,_that.kioskId,_that.kioskName,_that.kioskWiseOrderListing,_that.deliveryManagerPos,_that.settleAssignedOrdersOnly);case _:
+  return null;
+
+}
+}
+
+}
+
+/// @nodoc
+
+
+class _DeviceProfile implements DeviceProfile {
+  const _DeviceProfile({this.deviceType = DeviceType.cashier, this.hardwareId, this.kioskId, this.kioskName, this.kioskWiseOrderListing = false, this.deliveryManagerPos = false, this.settleAssignedOrdersOnly = false});
+  
+
+@override@JsonKey() final  DeviceType deviceType;
+/// This terminal's own id (shown with a copy button on the registration screen).
+@override final  String? hardwareId;
+@override final  String? kioskId;
+@override final  String? kioskName;
+@override@JsonKey() final  bool kioskWiseOrderListing;
+@override@JsonKey() final  bool deliveryManagerPos;
+@override@JsonKey() final  bool settleAssignedOrdersOnly;
+
+/// Create a copy of DeviceProfile
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+_$DeviceProfileCopyWith<_DeviceProfile> get copyWith => __$DeviceProfileCopyWithImpl<_DeviceProfile>(this, _$identity);
+
+
+
+@override
+bool operator ==(Object other) {
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _DeviceProfile&&(identical(other.deviceType, deviceType) || other.deviceType == deviceType)&&(identical(other.hardwareId, hardwareId) || other.hardwareId == hardwareId)&&(identical(other.kioskId, kioskId) || other.kioskId == kioskId)&&(identical(other.kioskName, kioskName) || other.kioskName == kioskName)&&(identical(other.kioskWiseOrderListing, kioskWiseOrderListing) || other.kioskWiseOrderListing == kioskWiseOrderListing)&&(identical(other.deliveryManagerPos, deliveryManagerPos) || other.deliveryManagerPos == deliveryManagerPos)&&(identical(other.settleAssignedOrdersOnly, settleAssignedOrdersOnly) || other.settleAssignedOrdersOnly == settleAssignedOrdersOnly));
+}
+
+
+@override
+int get hashCode {
+    return Object.hash(runtimeType,deviceType,hardwareId,kioskId,kioskName,kioskWiseOrderListing,deliveryManagerPos,settleAssignedOrdersOnly);
+}
+
+@override
+String toString() {
+    return 'DeviceProfile(deviceType: $deviceType, hardwareId: $hardwareId, kioskId: $kioskId, kioskName: $kioskName, kioskWiseOrderListing: $kioskWiseOrderListing, deliveryManagerPos: $deliveryManagerPos, settleAssignedOrdersOnly: $settleAssignedOrdersOnly)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class _$DeviceProfileCopyWith<$Res> implements $DeviceProfileCopyWith<$Res> {
+  factory _$DeviceProfileCopyWith(_DeviceProfile value, $Res Function(_DeviceProfile) _then) = __$DeviceProfileCopyWithImpl;
+@override @useResult
+$Res call({
+ DeviceType deviceType, String? hardwareId, String? kioskId, String? kioskName, bool kioskWiseOrderListing, bool deliveryManagerPos, bool settleAssignedOrdersOnly
+});
+
+
+
+
+}
+/// @nodoc
+class __$DeviceProfileCopyWithImpl<$Res>
+    implements _$DeviceProfileCopyWith<$Res> {
+  __$DeviceProfileCopyWithImpl(this._self, this._then);
+
+  final _DeviceProfile _self;
+  final $Res Function(_DeviceProfile) _then;
+
+/// Create a copy of DeviceProfile
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? deviceType = null,Object? hardwareId = freezed,Object? kioskId = freezed,Object? kioskName = freezed,Object? kioskWiseOrderListing = null,Object? deliveryManagerPos = null,Object? settleAssignedOrdersOnly = null,}) {
+  return _then(_DeviceProfile(
+deviceType: null == deviceType ? _self.deviceType : deviceType // ignore: cast_nullable_to_non_nullable
+as DeviceType,hardwareId: freezed == hardwareId ? _self.hardwareId : hardwareId // ignore: cast_nullable_to_non_nullable
+as String?,kioskId: freezed == kioskId ? _self.kioskId : kioskId // ignore: cast_nullable_to_non_nullable
+as String?,kioskName: freezed == kioskName ? _self.kioskName : kioskName // ignore: cast_nullable_to_non_nullable
+as String?,kioskWiseOrderListing: null == kioskWiseOrderListing ? _self.kioskWiseOrderListing : kioskWiseOrderListing // ignore: cast_nullable_to_non_nullable
+as bool,deliveryManagerPos: null == deliveryManagerPos ? _self.deliveryManagerPos : deliveryManagerPos // ignore: cast_nullable_to_non_nullable
+as bool,settleAssignedOrdersOnly: null == settleAssignedOrdersOnly ? _self.settleAssignedOrdersOnly : settleAssignedOrdersOnly // ignore: cast_nullable_to_non_nullable
+as bool,
+  ));
+}
+
+
+}
+
+/// @nodoc
+mixin _$KioskOption {
+
+ String get id; String get name;
+/// Create a copy of KioskOption
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$KioskOptionCopyWith<KioskOption> get copyWith => _$KioskOptionCopyWithImpl<KioskOption>(this as KioskOption, _$identity);
+
+
+
+@override
+bool operator ==(Object other) {
+  final _this = this as KioskOption;
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is KioskOption&&(identical(other.id, _this.id) || other.id == _this.id)&&(identical(other.name, _this.name) || other.name == _this.name));
+}
+
+
+@override
+int get hashCode {
+  final _this = this as KioskOption;
+  return Object.hash(runtimeType,_this.id,_this.name);
+}
+
+@override
+String toString() {
+  final _this = this as KioskOption;
+  return 'KioskOption(id: ${_this.id}, name: ${_this.name})';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $KioskOptionCopyWith<$Res>  {
+  factory $KioskOptionCopyWith(KioskOption value, $Res Function(KioskOption) _then) = _$KioskOptionCopyWithImpl;
+@useResult
+$Res call({
+ String id, String name
+});
+
+
+
+
+}
+/// @nodoc
+class _$KioskOptionCopyWithImpl<$Res>
+    implements $KioskOptionCopyWith<$Res> {
+  _$KioskOptionCopyWithImpl(this._self, this._then);
+
+  final KioskOption _self;
+  final $Res Function(KioskOption) _then;
+
+/// Create a copy of KioskOption
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? name = null,}) {
+  return _then(KioskOption(
+id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
+as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
+as String,
+  ));
+}
+
+}
+
+
+/// Adds pattern-matching-related methods to [KioskOption].
+extension KioskOptionPatterns on KioskOption {
+/// A variant of `map` that fallback to returning `orElse`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _KioskOption value)?  $default,{required TResult orElse(),}){
+final _that = this;
+switch (_that) {
+case _KioskOption() when $default != null:
+return $default(_that);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// Callbacks receives the raw object, upcasted.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case final Subclass2 value:
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _KioskOption value)  $default,){
+final _that = this;
+switch (_that) {
+case _KioskOption():
+return $default(_that);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `map` that fallback to returning `null`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _KioskOption value)?  $default,){
+final _that = this;
+switch (_that) {
+case _KioskOption() when $default != null:
+return $default(_that);case _:
+  return null;
+
+}
+}
+/// A variant of `when` that fallback to an `orElse` callback.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String name)?  $default,{required TResult orElse(),}) {final _that = this;
+switch (_that) {
+case _KioskOption() when $default != null:
+return $default(_that.id,_that.name);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// As opposed to `map`, this offers destructuring.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case Subclass2(:final field2):
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String name)  $default,) {final _that = this;
+switch (_that) {
+case _KioskOption():
+return $default(_that.id,_that.name);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `when` that fallback to returning `null`
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String name)?  $default,) {final _that = this;
+switch (_that) {
+case _KioskOption() when $default != null:
+return $default(_that.id,_that.name);case _:
+  return null;
+
+}
+}
+
+}
+
+/// @nodoc
+
+
+class _KioskOption implements KioskOption {
+  const _KioskOption({required this.id, required this.name});
+  
+
+@override final  String id;
+@override final  String name;
+
+/// Create a copy of KioskOption
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+_$KioskOptionCopyWith<_KioskOption> get copyWith => __$KioskOptionCopyWithImpl<_KioskOption>(this, _$identity);
+
+
+
+@override
+bool operator ==(Object other) {
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _KioskOption&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name));
+}
+
+
+@override
+int get hashCode {
+    return Object.hash(runtimeType,id,name);
+}
+
+@override
+String toString() {
+    return 'KioskOption(id: $id, name: $name)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class _$KioskOptionCopyWith<$Res> implements $KioskOptionCopyWith<$Res> {
+  factory _$KioskOptionCopyWith(_KioskOption value, $Res Function(_KioskOption) _then) = __$KioskOptionCopyWithImpl;
+@override @useResult
+$Res call({
+ String id, String name
+});
+
+
+
+
+}
+/// @nodoc
+class __$KioskOptionCopyWithImpl<$Res>
+    implements _$KioskOptionCopyWith<$Res> {
+  __$KioskOptionCopyWithImpl(this._self, this._then);
+
+  final _KioskOption _self;
+  final $Res Function(_KioskOption) _then;
+
+/// Create a copy of KioskOption
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? name = null,}) {
+  return _then(_KioskOption(
+id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
+as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
+as String,
+  ));
+}
+
+
+}
+
+/// @nodoc
+mixin _$RegistrationPreview {
+
+ String get storeId; String get storeCode; String get storeName; List<KioskOption> get kiosks;/// The code re-pairs an existing terminal (same P-code).
+ bool get rePair;/// This terminal's own id.
+ String get hardwareId;
+/// Create a copy of RegistrationPreview
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$RegistrationPreviewCopyWith<RegistrationPreview> get copyWith => _$RegistrationPreviewCopyWithImpl<RegistrationPreview>(this as RegistrationPreview, _$identity);
+
+
+
+@override
+bool operator ==(Object other) {
+  final _this = this as RegistrationPreview;
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is RegistrationPreview&&(identical(other.storeId, _this.storeId) || other.storeId == _this.storeId)&&(identical(other.storeCode, _this.storeCode) || other.storeCode == _this.storeCode)&&(identical(other.storeName, _this.storeName) || other.storeName == _this.storeName)&&const DeepCollectionEquality().equals(other.kiosks, _this.kiosks)&&(identical(other.rePair, _this.rePair) || other.rePair == _this.rePair)&&(identical(other.hardwareId, _this.hardwareId) || other.hardwareId == _this.hardwareId));
+}
+
+
+@override
+int get hashCode {
+  final _this = this as RegistrationPreview;
+  return Object.hash(runtimeType,_this.storeId,_this.storeCode,_this.storeName,const DeepCollectionEquality().hash(_this.kiosks),_this.rePair,_this.hardwareId);
+}
+
+@override
+String toString() {
+  final _this = this as RegistrationPreview;
+  return 'RegistrationPreview(storeId: ${_this.storeId}, storeCode: ${_this.storeCode}, storeName: ${_this.storeName}, kiosks: ${_this.kiosks}, rePair: ${_this.rePair}, hardwareId: ${_this.hardwareId})';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $RegistrationPreviewCopyWith<$Res>  {
+  factory $RegistrationPreviewCopyWith(RegistrationPreview value, $Res Function(RegistrationPreview) _then) = _$RegistrationPreviewCopyWithImpl;
+@useResult
+$Res call({
+ String storeId, String storeCode, String storeName, List<KioskOption> kiosks, bool rePair, String hardwareId
+});
+
+
+
+
+}
+/// @nodoc
+class _$RegistrationPreviewCopyWithImpl<$Res>
+    implements $RegistrationPreviewCopyWith<$Res> {
+  _$RegistrationPreviewCopyWithImpl(this._self, this._then);
+
+  final RegistrationPreview _self;
+  final $Res Function(RegistrationPreview) _then;
+
+/// Create a copy of RegistrationPreview
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') @override $Res call({Object? storeId = null,Object? storeCode = null,Object? storeName = null,Object? kiosks = null,Object? rePair = null,Object? hardwareId = null,}) {
+  return _then(RegistrationPreview(
+storeId: null == storeId ? _self.storeId : storeId // ignore: cast_nullable_to_non_nullable
+as String,storeCode: null == storeCode ? _self.storeCode : storeCode // ignore: cast_nullable_to_non_nullable
+as String,storeName: null == storeName ? _self.storeName : storeName // ignore: cast_nullable_to_non_nullable
+as String,kiosks: null == kiosks ? _self.kiosks : kiosks // ignore: cast_nullable_to_non_nullable
+as List<KioskOption>,rePair: null == rePair ? _self.rePair : rePair // ignore: cast_nullable_to_non_nullable
+as bool,hardwareId: null == hardwareId ? _self.hardwareId : hardwareId // ignore: cast_nullable_to_non_nullable
+as String,
+  ));
+}
+
+}
+
+
+/// Adds pattern-matching-related methods to [RegistrationPreview].
+extension RegistrationPreviewPatterns on RegistrationPreview {
+/// A variant of `map` that fallback to returning `orElse`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _RegistrationPreview value)?  $default,{required TResult orElse(),}){
+final _that = this;
+switch (_that) {
+case _RegistrationPreview() when $default != null:
+return $default(_that);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// Callbacks receives the raw object, upcasted.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case final Subclass2 value:
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _RegistrationPreview value)  $default,){
+final _that = this;
+switch (_that) {
+case _RegistrationPreview():
+return $default(_that);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `map` that fallback to returning `null`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _RegistrationPreview value)?  $default,){
+final _that = this;
+switch (_that) {
+case _RegistrationPreview() when $default != null:
+return $default(_that);case _:
+  return null;
+
+}
+}
+/// A variant of `when` that fallback to an `orElse` callback.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String storeId,  String storeCode,  String storeName,  List<KioskOption> kiosks,  bool rePair,  String hardwareId)?  $default,{required TResult orElse(),}) {final _that = this;
+switch (_that) {
+case _RegistrationPreview() when $default != null:
+return $default(_that.storeId,_that.storeCode,_that.storeName,_that.kiosks,_that.rePair,_that.hardwareId);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// As opposed to `map`, this offers destructuring.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case Subclass2(:final field2):
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String storeId,  String storeCode,  String storeName,  List<KioskOption> kiosks,  bool rePair,  String hardwareId)  $default,) {final _that = this;
+switch (_that) {
+case _RegistrationPreview():
+return $default(_that.storeId,_that.storeCode,_that.storeName,_that.kiosks,_that.rePair,_that.hardwareId);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `when` that fallback to returning `null`
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String storeId,  String storeCode,  String storeName,  List<KioskOption> kiosks,  bool rePair,  String hardwareId)?  $default,) {final _that = this;
+switch (_that) {
+case _RegistrationPreview() when $default != null:
+return $default(_that.storeId,_that.storeCode,_that.storeName,_that.kiosks,_that.rePair,_that.hardwareId);case _:
+  return null;
+
+}
+}
+
+}
+
+/// @nodoc
+
+
+class _RegistrationPreview implements RegistrationPreview {
+  const _RegistrationPreview({required this.storeId, required this.storeCode, required this.storeName,  List<KioskOption> kiosks = const <KioskOption>[], this.rePair = false, required this.hardwareId}): _kiosks = kiosks;
+  
+
+@override final  String storeId;
+@override final  String storeCode;
+@override final  String storeName;
+ final  List<KioskOption> _kiosks;
+@override@JsonKey() List<KioskOption> get kiosks {
+  if (_kiosks is EqualUnmodifiableListView) return _kiosks;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableListView(_kiosks);
+}
+
+/// The code re-pairs an existing terminal (same P-code).
+@override@JsonKey() final  bool rePair;
+/// This terminal's own id.
+@override final  String hardwareId;
+
+/// Create a copy of RegistrationPreview
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+_$RegistrationPreviewCopyWith<_RegistrationPreview> get copyWith => __$RegistrationPreviewCopyWithImpl<_RegistrationPreview>(this, _$identity);
+
+
+
+@override
+bool operator ==(Object other) {
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _RegistrationPreview&&(identical(other.storeId, storeId) || other.storeId == storeId)&&(identical(other.storeCode, storeCode) || other.storeCode == storeCode)&&(identical(other.storeName, storeName) || other.storeName == storeName)&&const DeepCollectionEquality().equals(other.kiosks, _kiosks)&&(identical(other.rePair, rePair) || other.rePair == rePair)&&(identical(other.hardwareId, hardwareId) || other.hardwareId == hardwareId));
+}
+
+
+@override
+int get hashCode {
+    return Object.hash(runtimeType,storeId,storeCode,storeName,const DeepCollectionEquality().hash(_kiosks),rePair,hardwareId);
+}
+
+@override
+String toString() {
+    return 'RegistrationPreview(storeId: $storeId, storeCode: $storeCode, storeName: $storeName, kiosks: $kiosks, rePair: $rePair, hardwareId: $hardwareId)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class _$RegistrationPreviewCopyWith<$Res> implements $RegistrationPreviewCopyWith<$Res> {
+  factory _$RegistrationPreviewCopyWith(_RegistrationPreview value, $Res Function(_RegistrationPreview) _then) = __$RegistrationPreviewCopyWithImpl;
+@override @useResult
+$Res call({
+ String storeId, String storeCode, String storeName, List<KioskOption> kiosks, bool rePair, String hardwareId
+});
+
+
+
+
+}
+/// @nodoc
+class __$RegistrationPreviewCopyWithImpl<$Res>
+    implements _$RegistrationPreviewCopyWith<$Res> {
+  __$RegistrationPreviewCopyWithImpl(this._self, this._then);
+
+  final _RegistrationPreview _self;
+  final $Res Function(_RegistrationPreview) _then;
+
+/// Create a copy of RegistrationPreview
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? storeId = null,Object? storeCode = null,Object? storeName = null,Object? kiosks = null,Object? rePair = null,Object? hardwareId = null,}) {
+  return _then(_RegistrationPreview(
+storeId: null == storeId ? _self.storeId : storeId // ignore: cast_nullable_to_non_nullable
+as String,storeCode: null == storeCode ? _self.storeCode : storeCode // ignore: cast_nullable_to_non_nullable
+as String,storeName: null == storeName ? _self.storeName : storeName // ignore: cast_nullable_to_non_nullable
+as String,kiosks: null == kiosks ? _self._kiosks : kiosks // ignore: cast_nullable_to_non_nullable
+as List<KioskOption>,rePair: null == rePair ? _self.rePair : rePair // ignore: cast_nullable_to_non_nullable
+as bool,hardwareId: null == hardwareId ? _self.hardwareId : hardwareId // ignore: cast_nullable_to_non_nullable
+as String,
+  ));
+}
+
+
+}
+
+/// @nodoc
 mixin _$DeviceSession {
 
  String get deviceId;/// Origin of every change this terminal writes (P1, P2 ...) and its bill-number prefix.
- String get deviceCode; String get tokenLetter; int get gatewayPriority; StoreInfo get store; String get accessToken; DateTime get accessTokenExpiresAt; String get refreshToken; DateTime get refreshTokenExpiresAt; String get signingSecret;
+ String get deviceCode; String get tokenLetter; int get gatewayPriority; StoreInfo get store; String get accessToken; DateTime get accessTokenExpiresAt; String get refreshToken; DateTime get refreshTokenExpiresAt; String get signingSecret; DeviceProfile get profile;
 /// Create a copy of DeviceSession
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -313,20 +1153,20 @@ $DeviceSessionCopyWith<DeviceSession> get copyWith => _$DeviceSessionCopyWithImp
 @override
 bool operator ==(Object other) {
   final _this = this as DeviceSession;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is DeviceSession&&(identical(other.deviceId, _this.deviceId) || other.deviceId == _this.deviceId)&&(identical(other.deviceCode, _this.deviceCode) || other.deviceCode == _this.deviceCode)&&(identical(other.tokenLetter, _this.tokenLetter) || other.tokenLetter == _this.tokenLetter)&&(identical(other.gatewayPriority, _this.gatewayPriority) || other.gatewayPriority == _this.gatewayPriority)&&(identical(other.store, _this.store) || other.store == _this.store)&&(identical(other.accessToken, _this.accessToken) || other.accessToken == _this.accessToken)&&(identical(other.accessTokenExpiresAt, _this.accessTokenExpiresAt) || other.accessTokenExpiresAt == _this.accessTokenExpiresAt)&&(identical(other.refreshToken, _this.refreshToken) || other.refreshToken == _this.refreshToken)&&(identical(other.refreshTokenExpiresAt, _this.refreshTokenExpiresAt) || other.refreshTokenExpiresAt == _this.refreshTokenExpiresAt)&&(identical(other.signingSecret, _this.signingSecret) || other.signingSecret == _this.signingSecret));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is DeviceSession&&(identical(other.deviceId, _this.deviceId) || other.deviceId == _this.deviceId)&&(identical(other.deviceCode, _this.deviceCode) || other.deviceCode == _this.deviceCode)&&(identical(other.tokenLetter, _this.tokenLetter) || other.tokenLetter == _this.tokenLetter)&&(identical(other.gatewayPriority, _this.gatewayPriority) || other.gatewayPriority == _this.gatewayPriority)&&(identical(other.store, _this.store) || other.store == _this.store)&&(identical(other.accessToken, _this.accessToken) || other.accessToken == _this.accessToken)&&(identical(other.accessTokenExpiresAt, _this.accessTokenExpiresAt) || other.accessTokenExpiresAt == _this.accessTokenExpiresAt)&&(identical(other.refreshToken, _this.refreshToken) || other.refreshToken == _this.refreshToken)&&(identical(other.refreshTokenExpiresAt, _this.refreshTokenExpiresAt) || other.refreshTokenExpiresAt == _this.refreshTokenExpiresAt)&&(identical(other.signingSecret, _this.signingSecret) || other.signingSecret == _this.signingSecret)&&(identical(other.profile, _this.profile) || other.profile == _this.profile));
 }
 
 
 @override
 int get hashCode {
   final _this = this as DeviceSession;
-  return Object.hash(runtimeType,_this.deviceId,_this.deviceCode,_this.tokenLetter,_this.gatewayPriority,_this.store,_this.accessToken,_this.accessTokenExpiresAt,_this.refreshToken,_this.refreshTokenExpiresAt,_this.signingSecret);
+  return Object.hash(runtimeType,_this.deviceId,_this.deviceCode,_this.tokenLetter,_this.gatewayPriority,_this.store,_this.accessToken,_this.accessTokenExpiresAt,_this.refreshToken,_this.refreshTokenExpiresAt,_this.signingSecret,_this.profile);
 }
 
 @override
 String toString() {
   final _this = this as DeviceSession;
-  return 'DeviceSession(deviceId: ${_this.deviceId}, deviceCode: ${_this.deviceCode}, tokenLetter: ${_this.tokenLetter}, gatewayPriority: ${_this.gatewayPriority}, store: ${_this.store}, accessToken: ${_this.accessToken}, accessTokenExpiresAt: ${_this.accessTokenExpiresAt}, refreshToken: ${_this.refreshToken}, refreshTokenExpiresAt: ${_this.refreshTokenExpiresAt}, signingSecret: ${_this.signingSecret})';
+  return 'DeviceSession(deviceId: ${_this.deviceId}, deviceCode: ${_this.deviceCode}, tokenLetter: ${_this.tokenLetter}, gatewayPriority: ${_this.gatewayPriority}, store: ${_this.store}, accessToken: ${_this.accessToken}, accessTokenExpiresAt: ${_this.accessTokenExpiresAt}, refreshToken: ${_this.refreshToken}, refreshTokenExpiresAt: ${_this.refreshTokenExpiresAt}, signingSecret: ${_this.signingSecret}, profile: ${_this.profile})';
 }
 
 
@@ -337,11 +1177,11 @@ abstract mixin class $DeviceSessionCopyWith<$Res>  {
   factory $DeviceSessionCopyWith(DeviceSession value, $Res Function(DeviceSession) _then) = _$DeviceSessionCopyWithImpl;
 @useResult
 $Res call({
- String deviceId, String deviceCode, String tokenLetter, int gatewayPriority, StoreInfo store, String accessToken, DateTime accessTokenExpiresAt, String refreshToken, DateTime refreshTokenExpiresAt, String signingSecret
+ String deviceId, String deviceCode, String tokenLetter, int gatewayPriority, StoreInfo store, String accessToken, DateTime accessTokenExpiresAt, String refreshToken, DateTime refreshTokenExpiresAt, String signingSecret, DeviceProfile profile
 });
 
 
-$StoreInfoCopyWith<$Res> get store;
+$StoreInfoCopyWith<$Res> get store;$DeviceProfileCopyWith<$Res> get profile;
 
 }
 /// @nodoc
@@ -354,7 +1194,7 @@ class _$DeviceSessionCopyWithImpl<$Res>
 
 /// Create a copy of DeviceSession
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? deviceId = null,Object? deviceCode = null,Object? tokenLetter = null,Object? gatewayPriority = null,Object? store = null,Object? accessToken = null,Object? accessTokenExpiresAt = null,Object? refreshToken = null,Object? refreshTokenExpiresAt = null,Object? signingSecret = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? deviceId = null,Object? deviceCode = null,Object? tokenLetter = null,Object? gatewayPriority = null,Object? store = null,Object? accessToken = null,Object? accessTokenExpiresAt = null,Object? refreshToken = null,Object? refreshTokenExpiresAt = null,Object? signingSecret = null,Object? profile = null,}) {
   return _then(DeviceSession(
 deviceId: null == deviceId ? _self.deviceId : deviceId // ignore: cast_nullable_to_non_nullable
 as String,deviceCode: null == deviceCode ? _self.deviceCode : deviceCode // ignore: cast_nullable_to_non_nullable
@@ -366,7 +1206,8 @@ as String,accessTokenExpiresAt: null == accessTokenExpiresAt ? _self.accessToken
 as DateTime,refreshToken: null == refreshToken ? _self.refreshToken : refreshToken // ignore: cast_nullable_to_non_nullable
 as String,refreshTokenExpiresAt: null == refreshTokenExpiresAt ? _self.refreshTokenExpiresAt : refreshTokenExpiresAt // ignore: cast_nullable_to_non_nullable
 as DateTime,signingSecret: null == signingSecret ? _self.signingSecret : signingSecret // ignore: cast_nullable_to_non_nullable
-as String,
+as String,profile: null == profile ? _self.profile : profile // ignore: cast_nullable_to_non_nullable
+as DeviceProfile,
   ));
 }
 /// Create a copy of DeviceSession
@@ -377,6 +1218,15 @@ $StoreInfoCopyWith<$Res> get store {
   
   return $StoreInfoCopyWith<$Res>(_self.store, (value) {
     return _then(_self.copyWith(store: value));
+  });
+}/// Create a copy of DeviceSession
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$DeviceProfileCopyWith<$Res> get profile {
+  
+  return $DeviceProfileCopyWith<$Res>(_self.profile, (value) {
+    return _then(_self.copyWith(profile: value));
   });
 }
 }
@@ -460,10 +1310,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String deviceId,  String deviceCode,  String tokenLetter,  int gatewayPriority,  StoreInfo store,  String accessToken,  DateTime accessTokenExpiresAt,  String refreshToken,  DateTime refreshTokenExpiresAt,  String signingSecret)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String deviceId,  String deviceCode,  String tokenLetter,  int gatewayPriority,  StoreInfo store,  String accessToken,  DateTime accessTokenExpiresAt,  String refreshToken,  DateTime refreshTokenExpiresAt,  String signingSecret,  DeviceProfile profile)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _DeviceSession() when $default != null:
-return $default(_that.deviceId,_that.deviceCode,_that.tokenLetter,_that.gatewayPriority,_that.store,_that.accessToken,_that.accessTokenExpiresAt,_that.refreshToken,_that.refreshTokenExpiresAt,_that.signingSecret);case _:
+return $default(_that.deviceId,_that.deviceCode,_that.tokenLetter,_that.gatewayPriority,_that.store,_that.accessToken,_that.accessTokenExpiresAt,_that.refreshToken,_that.refreshTokenExpiresAt,_that.signingSecret,_that.profile);case _:
   return orElse();
 
 }
@@ -481,10 +1331,10 @@ return $default(_that.deviceId,_that.deviceCode,_that.tokenLetter,_that.gatewayP
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String deviceId,  String deviceCode,  String tokenLetter,  int gatewayPriority,  StoreInfo store,  String accessToken,  DateTime accessTokenExpiresAt,  String refreshToken,  DateTime refreshTokenExpiresAt,  String signingSecret)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String deviceId,  String deviceCode,  String tokenLetter,  int gatewayPriority,  StoreInfo store,  String accessToken,  DateTime accessTokenExpiresAt,  String refreshToken,  DateTime refreshTokenExpiresAt,  String signingSecret,  DeviceProfile profile)  $default,) {final _that = this;
 switch (_that) {
 case _DeviceSession():
-return $default(_that.deviceId,_that.deviceCode,_that.tokenLetter,_that.gatewayPriority,_that.store,_that.accessToken,_that.accessTokenExpiresAt,_that.refreshToken,_that.refreshTokenExpiresAt,_that.signingSecret);case _:
+return $default(_that.deviceId,_that.deviceCode,_that.tokenLetter,_that.gatewayPriority,_that.store,_that.accessToken,_that.accessTokenExpiresAt,_that.refreshToken,_that.refreshTokenExpiresAt,_that.signingSecret,_that.profile);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -501,10 +1351,10 @@ return $default(_that.deviceId,_that.deviceCode,_that.tokenLetter,_that.gatewayP
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String deviceId,  String deviceCode,  String tokenLetter,  int gatewayPriority,  StoreInfo store,  String accessToken,  DateTime accessTokenExpiresAt,  String refreshToken,  DateTime refreshTokenExpiresAt,  String signingSecret)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String deviceId,  String deviceCode,  String tokenLetter,  int gatewayPriority,  StoreInfo store,  String accessToken,  DateTime accessTokenExpiresAt,  String refreshToken,  DateTime refreshTokenExpiresAt,  String signingSecret,  DeviceProfile profile)?  $default,) {final _that = this;
 switch (_that) {
 case _DeviceSession() when $default != null:
-return $default(_that.deviceId,_that.deviceCode,_that.tokenLetter,_that.gatewayPriority,_that.store,_that.accessToken,_that.accessTokenExpiresAt,_that.refreshToken,_that.refreshTokenExpiresAt,_that.signingSecret);case _:
+return $default(_that.deviceId,_that.deviceCode,_that.tokenLetter,_that.gatewayPriority,_that.store,_that.accessToken,_that.accessTokenExpiresAt,_that.refreshToken,_that.refreshTokenExpiresAt,_that.signingSecret,_that.profile);case _:
   return null;
 
 }
@@ -516,7 +1366,7 @@ return $default(_that.deviceId,_that.deviceCode,_that.tokenLetter,_that.gatewayP
 
 
 class _DeviceSession extends DeviceSession {
-  const _DeviceSession({required this.deviceId, required this.deviceCode, required this.tokenLetter, required this.gatewayPriority, required this.store, required this.accessToken, required this.accessTokenExpiresAt, required this.refreshToken, required this.refreshTokenExpiresAt, required this.signingSecret}): super._();
+  const _DeviceSession({required this.deviceId, required this.deviceCode, required this.tokenLetter, required this.gatewayPriority, required this.store, required this.accessToken, required this.accessTokenExpiresAt, required this.refreshToken, required this.refreshTokenExpiresAt, required this.signingSecret, this.profile = const DeviceProfile()}): super._();
   
 
 @override final  String deviceId;
@@ -530,6 +1380,7 @@ class _DeviceSession extends DeviceSession {
 @override final  String refreshToken;
 @override final  DateTime refreshTokenExpiresAt;
 @override final  String signingSecret;
+@override@JsonKey() final  DeviceProfile profile;
 
 /// Create a copy of DeviceSession
 /// with the given fields replaced by the non-null parameter values.
@@ -541,18 +1392,18 @@ _$DeviceSessionCopyWith<_DeviceSession> get copyWith => __$DeviceSessionCopyWith
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _DeviceSession&&(identical(other.deviceId, deviceId) || other.deviceId == deviceId)&&(identical(other.deviceCode, deviceCode) || other.deviceCode == deviceCode)&&(identical(other.tokenLetter, tokenLetter) || other.tokenLetter == tokenLetter)&&(identical(other.gatewayPriority, gatewayPriority) || other.gatewayPriority == gatewayPriority)&&(identical(other.store, store) || other.store == store)&&(identical(other.accessToken, accessToken) || other.accessToken == accessToken)&&(identical(other.accessTokenExpiresAt, accessTokenExpiresAt) || other.accessTokenExpiresAt == accessTokenExpiresAt)&&(identical(other.refreshToken, refreshToken) || other.refreshToken == refreshToken)&&(identical(other.refreshTokenExpiresAt, refreshTokenExpiresAt) || other.refreshTokenExpiresAt == refreshTokenExpiresAt)&&(identical(other.signingSecret, signingSecret) || other.signingSecret == signingSecret));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _DeviceSession&&(identical(other.deviceId, deviceId) || other.deviceId == deviceId)&&(identical(other.deviceCode, deviceCode) || other.deviceCode == deviceCode)&&(identical(other.tokenLetter, tokenLetter) || other.tokenLetter == tokenLetter)&&(identical(other.gatewayPriority, gatewayPriority) || other.gatewayPriority == gatewayPriority)&&(identical(other.store, store) || other.store == store)&&(identical(other.accessToken, accessToken) || other.accessToken == accessToken)&&(identical(other.accessTokenExpiresAt, accessTokenExpiresAt) || other.accessTokenExpiresAt == accessTokenExpiresAt)&&(identical(other.refreshToken, refreshToken) || other.refreshToken == refreshToken)&&(identical(other.refreshTokenExpiresAt, refreshTokenExpiresAt) || other.refreshTokenExpiresAt == refreshTokenExpiresAt)&&(identical(other.signingSecret, signingSecret) || other.signingSecret == signingSecret)&&(identical(other.profile, profile) || other.profile == profile));
 }
 
 
 @override
 int get hashCode {
-    return Object.hash(runtimeType,deviceId,deviceCode,tokenLetter,gatewayPriority,store,accessToken,accessTokenExpiresAt,refreshToken,refreshTokenExpiresAt,signingSecret);
+    return Object.hash(runtimeType,deviceId,deviceCode,tokenLetter,gatewayPriority,store,accessToken,accessTokenExpiresAt,refreshToken,refreshTokenExpiresAt,signingSecret,profile);
 }
 
 @override
 String toString() {
-    return 'DeviceSession(deviceId: $deviceId, deviceCode: $deviceCode, tokenLetter: $tokenLetter, gatewayPriority: $gatewayPriority, store: $store, accessToken: $accessToken, accessTokenExpiresAt: $accessTokenExpiresAt, refreshToken: $refreshToken, refreshTokenExpiresAt: $refreshTokenExpiresAt, signingSecret: $signingSecret)';
+    return 'DeviceSession(deviceId: $deviceId, deviceCode: $deviceCode, tokenLetter: $tokenLetter, gatewayPriority: $gatewayPriority, store: $store, accessToken: $accessToken, accessTokenExpiresAt: $accessTokenExpiresAt, refreshToken: $refreshToken, refreshTokenExpiresAt: $refreshTokenExpiresAt, signingSecret: $signingSecret, profile: $profile)';
 }
 
 
@@ -563,11 +1414,11 @@ abstract mixin class _$DeviceSessionCopyWith<$Res> implements $DeviceSessionCopy
   factory _$DeviceSessionCopyWith(_DeviceSession value, $Res Function(_DeviceSession) _then) = __$DeviceSessionCopyWithImpl;
 @override @useResult
 $Res call({
- String deviceId, String deviceCode, String tokenLetter, int gatewayPriority, StoreInfo store, String accessToken, DateTime accessTokenExpiresAt, String refreshToken, DateTime refreshTokenExpiresAt, String signingSecret
+ String deviceId, String deviceCode, String tokenLetter, int gatewayPriority, StoreInfo store, String accessToken, DateTime accessTokenExpiresAt, String refreshToken, DateTime refreshTokenExpiresAt, String signingSecret, DeviceProfile profile
 });
 
 
-@override $StoreInfoCopyWith<$Res> get store;
+@override $StoreInfoCopyWith<$Res> get store;@override $DeviceProfileCopyWith<$Res> get profile;
 
 }
 /// @nodoc
@@ -580,7 +1431,7 @@ class __$DeviceSessionCopyWithImpl<$Res>
 
 /// Create a copy of DeviceSession
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? deviceId = null,Object? deviceCode = null,Object? tokenLetter = null,Object? gatewayPriority = null,Object? store = null,Object? accessToken = null,Object? accessTokenExpiresAt = null,Object? refreshToken = null,Object? refreshTokenExpiresAt = null,Object? signingSecret = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? deviceId = null,Object? deviceCode = null,Object? tokenLetter = null,Object? gatewayPriority = null,Object? store = null,Object? accessToken = null,Object? accessTokenExpiresAt = null,Object? refreshToken = null,Object? refreshTokenExpiresAt = null,Object? signingSecret = null,Object? profile = null,}) {
   return _then(_DeviceSession(
 deviceId: null == deviceId ? _self.deviceId : deviceId // ignore: cast_nullable_to_non_nullable
 as String,deviceCode: null == deviceCode ? _self.deviceCode : deviceCode // ignore: cast_nullable_to_non_nullable
@@ -592,7 +1443,8 @@ as String,accessTokenExpiresAt: null == accessTokenExpiresAt ? _self.accessToken
 as DateTime,refreshToken: null == refreshToken ? _self.refreshToken : refreshToken // ignore: cast_nullable_to_non_nullable
 as String,refreshTokenExpiresAt: null == refreshTokenExpiresAt ? _self.refreshTokenExpiresAt : refreshTokenExpiresAt // ignore: cast_nullable_to_non_nullable
 as DateTime,signingSecret: null == signingSecret ? _self.signingSecret : signingSecret // ignore: cast_nullable_to_non_nullable
-as String,
+as String,profile: null == profile ? _self.profile : profile // ignore: cast_nullable_to_non_nullable
+as DeviceProfile,
   ));
 }
 
@@ -604,6 +1456,15 @@ $StoreInfoCopyWith<$Res> get store {
   
   return $StoreInfoCopyWith<$Res>(_self.store, (value) {
     return _then(_self.copyWith(store: value));
+  });
+}/// Create a copy of DeviceSession
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$DeviceProfileCopyWith<$Res> get profile {
+  
+  return $DeviceProfileCopyWith<$Res>(_self.profile, (value) {
+    return _then(_self.copyWith(profile: value));
   });
 }
 }

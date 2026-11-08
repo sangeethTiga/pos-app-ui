@@ -12,6 +12,7 @@ import 'package:pos_app_ui/core/utils/result.dart';
 import 'package:pos_app_ui/features/device_setup/data/datasources/device_local_data_source.dart';
 import 'package:pos_app_ui/features/device_setup/data/datasources/device_remote_data_source.dart';
 import 'package:pos_app_ui/features/device_setup/data/repositories/device_repository_impl.dart';
+import 'package:pos_app_ui/features/device_setup/domain/entities/device_session.dart';
 
 class _Adapter implements HttpClientAdapter {
   _Adapter(this.status, this.body);
@@ -53,7 +54,17 @@ void main() {
     final store = MemorySecureStore();
     final r = repo(adapter, store);
 
-    final result = await r.register(storeCode: 'ST-0007', registrationCode: '483920', deviceName: 'POS-1');
+    final result = await r.register(
+      storeCode: 'ST-0007',
+      registrationCode: '483920',
+      deviceName: 'POS-1',
+      profile: const DeviceProfile(
+        deviceType: DeviceType.captain,
+        kioskId: 'k1',
+        kioskWiseOrderListing: true,
+        deliveryManagerPos: true,
+      ),
+    );
 
     expect(jsonDecode(adapter.sentBody!), {
       'store_code': 'ST-0007',
@@ -61,8 +72,19 @@ void main() {
       'device_name': 'POS-1',
       'platform': 'android',
       'app_version': '1.2.3',
+      'device_type': 'CAPTAIN',
+      'hardware_id': await DeviceLocalDataSource(store).hardwareId(),
+      'kiosk_id': 'k1',
+      'settings': {
+        'kiosk_wise_order_listing': true,
+        'delivery_manager_pos': true,
+        'settle_assigned_orders_only': false,
+      },
     });
     final session = (result as Success).value;
+    expect(session.profile.deviceType, DeviceType.captain);
+    expect(session.profile.kioskName, 'U Kiosk');
+    expect(session.profile.deliveryManagerPos, isTrue);
     expect(session.deviceCode, 'P1');
     expect(session.store.currencyDecimals, 2);
     expect(session.store.pricesIncludeTax, isTrue);
@@ -90,7 +112,7 @@ void main() {
     final result = await r.register(storeCode: 'ST-0007', registrationCode: '000000', deviceName: 'POS-1');
 
     expect((result as Err).failure, isA<ServerFailure>().having((f) => f.code, 'code', 'VALIDATION_FAILED'));
-    expect(store.values, isEmpty);
+    expect(store.values.keys, ['terminal_hardware_id']); // the terminal's own id only, no credentials
     expect(await r.currentSession(), isNull);
   });
 
@@ -100,6 +122,34 @@ void main() {
     final failure = (result as Err).failure;
     expect(failure, isA<UnexpectedFailure>());
     expect(failure.userMessage, contains('Ask for a new code'));
+  });
+
+  test('preview parses store and kiosks and adds the stable device id', () async {
+    final adapter = _Adapter(
+      200,
+      '{"store":{"id":"s1","code":"ST-0007","name":"Khyber Darbar"},'
+      '"kiosks":[{"id":"k1","name":"U Kiosk"}],"device_types":["CASHIER","CAPTAIN"],"re_pair":false}',
+    );
+    final store = MemorySecureStore();
+    final r = repo(adapter, store);
+
+    final p =
+        ((await r.preview(storeCode: 'ST-0007', registrationCode: '483920')) as Success<RegistrationPreview>).value;
+
+    expect(jsonDecode(adapter.sentBody!), {'store_code': 'ST-0007', 'registration_code': '483920'});
+    expect(p.storeName, 'Khyber Darbar');
+    expect(p.kiosks, [const KioskOption(id: 'k1', name: 'U Kiosk')]);
+    expect(p.hardwareId, matches(RegExp(r'^[0-9A-F-]{36}$')));
+    final again =
+        ((await r.preview(storeCode: 'ST-0007', registrationCode: '483920')) as Success<RegistrationPreview>).value;
+    expect(again.hardwareId, p.hardwareId);
+  });
+
+  test('session stored before roles existed reads as a cashier', () async {
+    final old = Map<String, dynamic>.from(jsonDecode(fixture) as Map)..remove('profile');
+    final store = MemorySecureStore()..values['device_session_v1'] = jsonEncode(old);
+    final session = await repo(_Adapter(200, '{}'), store).currentSession();
+    expect(session!.profile, const DeviceProfile());
   });
 
   test('corrupt stored session is discarded', () async {

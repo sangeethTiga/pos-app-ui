@@ -8,6 +8,7 @@ import '../../../../core/network/request_signer.dart';
 import '../models/device_registration_model.dart';
 import '../models/device_status_model.dart';
 import '../models/register_device_request.dart';
+import '../models/registration_preview_model.dart';
 
 /// HTTP calls of the device_setup feature. Throws [DioException]; the repository maps it.
 class DeviceRemoteDataSource {
@@ -22,6 +23,16 @@ class DeviceRemoteDataSource {
       options: Options(extra: {'public': true}), // no credentials yet
     );
     return DeviceRegistrationModel.fromJson(res.data!);
+  }
+
+  /// Checks the codes without using them up; returns store name and kiosks.
+  Future<RegistrationPreviewModel> preview({required String storeCode, required String registrationCode}) async {
+    final res = await _dio.post<Map<String, dynamic>>(
+      '/devices/register/preview',
+      data: {'store_code': storeCode, 'registration_code': registrationCode},
+      options: Options(extra: {'public': true}),
+    );
+    return RegistrationPreviewModel.fromJson(res.data!);
   }
 
   /// `POST /devices/token/refresh`: signed with the device secret, no bearer token.

@@ -10,7 +10,7 @@ import 'package:pos_app_ui/features/home/presentation/cubit/home_cubit.dart';
 import 'package:pos_app_ui/features/printing/data/printer_service.dart';
 import 'package:pos_app_ui/features/sales/presentation/cubit/sell_cubit.dart';
 import 'package:pos_app_ui/features/shift/domain/shift_service.dart';
-import 'package:pos_app_ui/features/staff/presentation/pin_login_cubit.dart';
+import 'package:pos_app_ui/features/staff/presentation/login_cubit.dart';
 import 'package:pos_app_ui/features/terminal/terminal_cubit.dart';
 
 /// Resolves the real object graph, as main() does. Catches cycles and missing registrations.
@@ -33,7 +33,7 @@ void main() {
     expect(await sl<DeviceRepository>().currentSession(), isNull);
     expect(sl<TerminalCubit>(), isNotNull);
     expect(sl<SellCubit>(), isNotNull);
-    expect(sl<PinLoginCubit>(), isNotNull);
+    expect(sl<LoginCubit>(), isNotNull);
     expect(sl<PrinterService>(), isNotNull);
     expect(sl<ShiftService>(), isNotNull);
   });

@@ -43,7 +43,8 @@ class ShiftService {
   }
 
   /// Opens today's business day if needed, then a shift for [userId] with [openingFloatMinor].
-  Future<String> startShift({required String userId, required int openingFloatMinor}) async {
+  /// [name]: shift picked on the login screen (Morning Shift ...).
+  Future<String> startShift({required String userId, required int openingFloatMinor, String? name}) async {
     if (await openShift() != null) throw StateError('A shift is already open on this terminal.');
     final changes = <LocalChange>[];
     final day = await openDay();
@@ -64,6 +65,7 @@ class ShiftService {
       'business_day_id': dayId,
       'device_code': _ctx.ctx.deviceCode,
       'user_id': userId,
+      'name': ?name,
       'opened_at': _nowIso(),
       'opening_float_minor': openingFloatMinor,
       'status': 'OPEN',

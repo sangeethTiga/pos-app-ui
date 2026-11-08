@@ -17,10 +17,16 @@ class StaffUser {
     required this.pinHash,
     required this.permissions,
     required this.maxDiscountBp,
+    this.username,
+    this.passwordHash,
   });
   final String id;
   final String name;
+  final String? username;
   final String? pinHash;
+
+  /// Same password as the admin panel (login screen checks it offline).
+  final String? passwordHash;
   final Set<String> permissions;
   final int maxDiscountBp;
 
@@ -48,11 +54,13 @@ class StaffRepository {
     final rows = await _store.all('user');
     final list = [
       for (final r in rows)
-        if (r.data['active'] == true && r.data['pin_hash'] != null)
+        if (r.data['active'] == true && (r.data['pin_hash'] != null || r.data['password_hash'] != null))
           StaffUser(
             id: r.id,
             name: r.data['name'] as String? ?? '',
+            username: r.data['username'] as String?,
             pinHash: r.data['pin_hash'] as String?,
+            passwordHash: r.data['password_hash'] as String?,
             permissions: {...((r.data['permissions'] as List?) ?? const []).cast<String>()},
             maxDiscountBp: (r.data['max_discount_bp'] as num?)?.toInt() ?? 0,
           ),
@@ -65,15 +73,20 @@ class StaffRepository {
   /// PIN check, offline. Argon2id from the server is slow by design (≈1–2 s), so it runs in an
   /// isolate once; afterwards a per-terminal HMAC of the PIN (bound to that pin_hash) is used.
   /// Locks the user for [lockout] after [maxAttempts] wrong PINs (SEC-05).
-  Future<bool> verifyPin(StaffUser user, String pin) async {
-    if (isLocked(user.id) || user.pinHash == null) return false;
-    final hash = user.pinHash!;
+  Future<bool> verifyPin(StaffUser user, String pin) => _verify(user, pin, user.pinHash, 'pin_cache_');
+
+  /// Password check on the login screen, offline, same rules and lockout as [verifyPin].
+  Future<bool> verifyPassword(StaffUser user, String password) =>
+      _verify(user, password, user.passwordHash, 'pwd_cache_');
+
+  Future<bool> _verify(StaffUser user, String secret, String? hash, String cachePrefix) async {
+    if (isLocked(user.id) || hash == null) return false;
     final key = await _localKey();
-    final fast = Hmac(sha256, key).convert(utf8.encode('${user.id}|$hash|$pin')).toString();
-    final cacheKey = 'pin_cache_${user.id}';
+    final fast = Hmac(sha256, key).convert(utf8.encode('${user.id}|$hash|$secret')).toString();
+    final cacheKey = '$cachePrefix${user.id}';
     var ok = await _secure.read(cacheKey) == fast;
     if (!ok) {
-      ok = await Isolate.run(() => PinHash.verify(pin, hash));
+      ok = await Isolate.run(() => PinHash.verify(secret, hash));
       if (ok) await _secure.write(cacheKey, fast);
     }
     if (ok) {

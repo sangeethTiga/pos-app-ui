@@ -46,6 +46,8 @@ class TerminalCubit extends Cubit<TerminalState> {
       timezone: s.store.timezone,
       businessDayCutoff: s.store.businessDayCutoff,
       pricesIncludeTax: s.store.pricesIncludeTax,
+      deviceType: s.profile.deviceType.wire,
+      kioskId: s.profile.kioskId,
     );
     await _store.open(s.deviceCode);
     emit(state.copyWith(started: true, syncing: true, pending: await _store.pendingCount()));

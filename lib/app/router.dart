@@ -2,6 +2,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../core/di/injection.dart';
+import '../core/terminal/terminal_context.dart';
 import '../features/device_setup/presentation/pages/device_setup_page.dart';
 import '../features/device_setup/presentation/pages/splash_page.dart';
 import '../features/home/presentation/cubit/home_cubit.dart';
@@ -10,8 +11,8 @@ import '../features/printing/presentation/printer_settings_page.dart';
 import '../features/sales/presentation/cubit/sell_cubit.dart';
 import '../features/sales/presentation/pages/sell_page.dart';
 import '../features/staff/data/staff_repository.dart';
-import '../features/staff/presentation/pin_login_cubit.dart';
-import '../features/staff/presentation/pin_login_page.dart';
+import '../features/staff/presentation/login_cubit.dart';
+import '../features/staff/presentation/login_page.dart';
 import 'routes.dart';
 
 /// Screen-level blocs are created per route; app-wide blocs live in [App].
@@ -31,7 +32,10 @@ GoRouter createRouter({String initialLocation = Routes.splash}) => GoRouter(
     ),
     GoRoute(
       path: Routes.lock,
-      builder: (_, _) => BlocProvider(create: (_) => sl<PinLoginCubit>()..load(), child: const PinLoginPage()),
+      builder: (_, _) => BlocProvider(
+        create: (_) => sl<LoginCubit>()..load(),
+        child: LoginPage(storeName: sl<TerminalContextHolder>().ready ? sl<TerminalContextHolder>().ctx.storeName : ''),
+      ),
     ),
     GoRoute(
       path: Routes.sell,

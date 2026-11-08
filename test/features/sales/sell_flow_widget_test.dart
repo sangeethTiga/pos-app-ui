@@ -28,9 +28,13 @@ SyncChange row(int seq, String entity, String id, Map<String, dynamic> fields) =
   createdAt: '2026-11-08T07:00:00.000Z',
 );
 
-/// Cashier logs in with a PIN, opens a shift, sells a product for cash; the sale lands in the change log.
+/// Cashier logs in (user name + password, shift + drawer balance), sells a product for cash; the sale lands
+/// in the change log.
 void main() {
-  testWidgets('PIN login -> open shift -> sell -> pay cash', (tester) async {
+  testWidgets('login with shift -> sell -> pay cash', (tester) async {
+    tester.view.physicalSize = const Size(1600, 1200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
     await sl.reset();
     await configureDependencies(
       config: const AppConfig(apiBaseUrl: 'http://pos.test/api/v1', appVersion: '1.0.0'),
@@ -57,6 +61,7 @@ void main() {
           'name': 'Asha',
           'active': true,
           'pin_hash': r'$2y$10$Ucs/UZbky3AT4mFew8TLo.kfbvDor4e9kkf3daMNSO9kMLL68DR5W',
+          'password_hash': r'$2y$10$Ucs/UZbky3AT4mFew8TLo.kfbvDor4e9kkf3daMNSO9kMLL68DR5W', // "1234"
           'max_discount_bp': 1000,
           'permissions': ['order.create', 'payment.take', 'shift.open_close', 'cash.in_out', 'discount.apply'],
         }),
@@ -76,25 +81,21 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // PIN login (bcrypt hash; verification runs in an isolate)
-    await tester.tap(find.byKey(const Key('user-u1')));
-    await tester.pump();
-    for (final d in ['1', '2', '3', '4']) {
-      await tester.tap(find.byKey(Key('pin-$d')));
-      await tester.pump();
-    }
-    await tester.tap(find.byKey(const Key('pin-ok')));
+    // Login: user, password (bcrypt; verification runs in an isolate), Morning Shift, 100.00 in the drawer.
+    await tester.tap(find.byKey(const Key('userField')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Asha').last);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('passwordField')), '1234');
+    await tester.enterText(find.byKey(const Key('drawerField')), '100');
+    expect(find.text('Morning Shift'), findsOneWidget);
+    expect(find.text('CASHIER'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('loginButton')));
     await tester.runAsync(() => Future<void>.delayed(const Duration(seconds: 2)));
     await tester.pumpAndSettle();
     expect(GoRouter.of(tester.element(find.byType(Scaffold).first)).state.matchedLocation, Routes.sell);
-
-    // open shift with 100.00 float
-    await tester.tap(find.byKey(const Key('openShift')));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField).last, '100');
-    await tester.tap(find.text('OK'));
-    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 300)));
-    await tester.pumpAndSettle();
+    final shift = (await tester.runAsync(() => store.all('shift')))!.single;
+    expect([shift.data['name'], shift.data['opening_float_minor']], ['Morning Shift', 10000]);
 
     // sell 2 x Fresh lime, pay all cash
     await tester.tap(find.byKey(const Key('product-p1')));

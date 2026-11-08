@@ -11,9 +11,11 @@ class RegisterDevice {
     required String storeCode,
     required String registrationCode,
     required String deviceName,
+    DeviceProfile profile = const DeviceProfile(),
   }) => _repository.register(
     storeCode: storeCode.trim().toUpperCase(),
     registrationCode: registrationCode.trim(),
     deviceName: deviceName.trim(),
+    profile: profile,
   );
 }

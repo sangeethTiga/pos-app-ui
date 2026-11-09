@@ -5,7 +5,8 @@ import '../../domain/entities/device_activation.dart';
 part 'device_activation_model.freezed.dart';
 part 'device_activation_model.g.dart';
 
-/// Activation block: body of `GET /devices/activation`, `activation` of `POST /devices/activate`,
+/// Activation block: body of `GET /devices/activation`, `activation` of `POST /devices/activate` and
+/// `POST /devices/setup`,
 /// heartbeat / `GET /devices/me` and the `device.activation` WebSocket event. Times are UTC ISO.
 @freezed
 abstract class DeviceActivationModel with _$DeviceActivationModel {

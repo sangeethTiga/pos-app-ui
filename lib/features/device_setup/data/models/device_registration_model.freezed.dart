@@ -595,7 +595,7 @@ as Map<String, bool>,
 /// @nodoc
 mixin _$DeviceRegistrationModel {
 
- String get deviceId; String get deviceCode; String get tokenLetter; int get gatewayPriority; StoreModel get store; String get signingSecret; String get accessToken; DateTime get accessTokenExpiresAt; String get refreshToken; DateTime get refreshTokenExpiresAt; DateTime? get serverTime;/// Missing in sessions stored before the registration screen had roles: cashier.
+ String get deviceId; String get deviceCode; String get tokenLetter; int get gatewayPriority; StoreModel get store; String get signingSecret; String get accessToken; DateTime get accessTokenExpiresAt; String get refreshToken; DateTime get refreshTokenExpiresAt; DateTime? get serverTime;/// Missing in sessions stored before the setup screen had roles: cashier.
  DeviceProfileModel? get profile;
 /// Create a copy of DeviceRegistrationModel
 /// with the given fields replaced by the non-null parameter values.
@@ -841,7 +841,7 @@ class _DeviceRegistrationModel extends DeviceRegistrationModel {
 @override final  String refreshToken;
 @override final  DateTime refreshTokenExpiresAt;
 @override final  DateTime? serverTime;
-/// Missing in sessions stored before the registration screen had roles: cashier.
+/// Missing in sessions stored before the setup screen had roles: cashier.
 @override final  DeviceProfileModel? profile;
 
 /// Create a copy of DeviceRegistrationModel

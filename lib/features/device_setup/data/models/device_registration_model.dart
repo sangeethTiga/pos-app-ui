@@ -34,7 +34,7 @@ abstract class StoreModel with _$StoreModel {
   );
 }
 
-/// `profile` of `POST /devices/register` and `GET /devices/me`.
+/// `profile` of `POST /devices/setup` and `GET /devices/me`.
 @freezed
 abstract class DeviceProfileModel with _$DeviceProfileModel {
   const DeviceProfileModel._();
@@ -60,7 +60,8 @@ abstract class DeviceProfileModel with _$DeviceProfileModel {
   );
 }
 
-/// `201` body of `POST /devices/register`. Also the format kept in secure storage.
+/// `201` body of `POST /devices/setup` (its `activation` block is read separately). Also the format kept
+/// in secure storage.
 @freezed
 abstract class DeviceRegistrationModel with _$DeviceRegistrationModel {
   const DeviceRegistrationModel._();
@@ -78,7 +79,7 @@ abstract class DeviceRegistrationModel with _$DeviceRegistrationModel {
     required DateTime refreshTokenExpiresAt,
     DateTime? serverTime,
 
-    /// Missing in sessions stored before the registration screen had roles: cashier.
+    /// Missing in sessions stored before the setup screen had roles: cashier.
     DeviceProfileModel? profile,
   }) = _DeviceRegistrationModel;
 

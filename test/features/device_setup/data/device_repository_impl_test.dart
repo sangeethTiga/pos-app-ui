@@ -11,14 +11,19 @@ import 'package:pos_app_ui/core/storage/secure_store.dart';
 import 'package:pos_app_ui/core/utils/result.dart';
 import 'package:pos_app_ui/features/device_setup/data/datasources/device_local_data_source.dart';
 import 'package:pos_app_ui/features/device_setup/data/datasources/device_remote_data_source.dart';
+import 'package:pos_app_ui/features/device_setup/data/repositories/activation_repository_impl.dart';
 import 'package:pos_app_ui/features/device_setup/data/repositories/device_repository_impl.dart';
+import 'package:pos_app_ui/features/device_setup/domain/activation_policy.dart';
+import 'package:pos_app_ui/features/device_setup/domain/entities/device_activation.dart';
 import 'package:pos_app_ui/features/device_setup/domain/entities/device_session.dart';
+import 'package:pos_app_ui/features/device_setup/domain/repositories/activation_repository.dart';
 
 class _Adapter implements HttpClientAdapter {
   _Adapter(this.status, this.body);
   final int status;
   final String body;
   String? sentBody;
+  String? path;
 
   @override
   Future<ResponseBody> fetch(
@@ -26,6 +31,7 @@ class _Adapter implements HttpClientAdapter {
     Stream<Uint8List>? requestStream,
     Future<void>? cancelFuture,
   ) async {
+    path = options.path;
     if (requestStream != null) sentBody = utf8.decode((await requestStream.toList()).expand((c) => c).toList());
     return ResponseBody.fromString(
       body,
@@ -42,21 +48,36 @@ class _Adapter implements HttpClientAdapter {
 
 void main() {
   const config = AppConfig(apiBaseUrl: 'http://pos.test/api/v1', appVersion: '1.2.3');
-  final fixture = File('test/fixtures/register_response.json').readAsStringSync();
+  final fixture = File('test/fixtures/setup_response.json').readAsStringSync();
 
-  DeviceRepositoryImpl repo(_Adapter adapter, SecureStore store) {
+  DeviceRepositoryImpl repo(_Adapter adapter, SecureStore store, {ActivationRepository? activations}) {
     final dio = createDio(config)..httpClientAdapter = adapter;
-    return DeviceRepositoryImpl(DeviceRemoteDataSource(dio), DeviceLocalDataSource(store), config, platform: 'android');
+    final remote = DeviceRemoteDataSource(dio);
+    return DeviceRepositoryImpl(
+      remote,
+      DeviceLocalDataSource(store),
+      config,
+      platform: 'android',
+      activations: activations,
+    );
   }
 
-  test('register sends snake_case body, parses the response and stores credentials', () async {
+  test('setup sends snake_case body, parses the response, stores credentials and the activation', () async {
     final adapter = _Adapter(201, fixture);
     final store = MemorySecureStore();
-    final r = repo(adapter, store);
+    final local = DeviceLocalDataSource(store);
+    final dio = createDio(config)..httpClientAdapter = adapter;
+    final activations = ActivationRepositoryImpl(
+      DeviceRemoteDataSource(dio),
+      local,
+      config,
+      clock: () => DateTime.utc(2026, 11, 8, 7),
+    );
+    final r = repo(adapter, store, activations: activations);
+    final announced = activations.changes.first;
 
-    final result = await r.register(
-      storeCode: 'ST-0007',
-      registrationCode: '483920',
+    final result = await r.setup(
+      code: 'abcd efgh-jkmn',
       deviceName: 'POS-1',
       profile: const DeviceProfile(
         deviceType: DeviceType.captain,
@@ -66,14 +87,14 @@ void main() {
       ),
     );
 
+    expect(adapter.path, '/devices/setup');
     expect(jsonDecode(adapter.sentBody!), {
-      'store_code': 'ST-0007',
-      'registration_code': '483920',
+      'code': 'ABCD-EFGH-JKMN',
       'device_name': 'POS-1',
       'platform': 'android',
       'app_version': '1.2.3',
       'device_type': 'CAPTAIN',
-      'hardware_id': await DeviceLocalDataSource(store).hardwareId(),
+      'hardware_id': await local.hardwareId(),
       'kiosk_id': 'k1',
       'settings': {
         'kiosk_wise_order_listing': true,
@@ -93,10 +114,17 @@ void main() {
     // persisted and readable after an app restart
     final again = await repo(_Adapter(200, '{}'), store).currentSession();
     expect(again, session);
-    expect(await DeviceLocalDataSource(store).deviceCredentials(), (
-      accessToken: '12|devicetokenvalue',
-      signingSecret: session.signingSecret,
-    ));
+    expect(await local.deviceCredentials(), (accessToken: '12|devicetokenvalue', signingSecret: session.signingSecret));
+
+    // activated in the same call: stored for the sell gate and announced to the activation cubit
+    final stored = (await activations.cached())!;
+    expect(stored.activation.status, ActivationStatus.active);
+    expect(stored.activation.valid, isTrue);
+    expect(stored.activation.deviceId, session.deviceId);
+    expect(stored.activation.expiresAt, DateTime.utc(2026, 12, 8, 7));
+    expect(stored.lastServerTime, DateTime.utc(2026, 11, 8, 7));
+    expect(ActivationPolicy.evaluate(stored, DateTime.utc(2026, 11, 8, 8)).canSell, isTrue);
+    expect((await announced).activation, stored.activation);
   });
 
   test('wrong code: failure from the error envelope, nothing stored', () async {
@@ -104,45 +132,91 @@ void main() {
     final r = repo(
       _Adapter(
         422,
-        '{"error":{"code":"VALIDATION_FAILED","message":"Invalid or expired registration code.","details":{},"retryable":false}}',
+        '{"error":{"code":"INVALID_ACTIVATION_CODE","message":"Invalid or expired activation code.","details":{},'
+        '"retryable":false}}',
       ),
       store,
     );
 
-    final result = await r.register(storeCode: 'ST-0007', registrationCode: '000000', deviceName: 'POS-1');
+    final result = await r.setup(code: 'ABCD-EFGH-JKMN', deviceName: 'POS-1');
 
-    expect((result as Err).failure, isA<ServerFailure>().having((f) => f.code, 'code', 'VALIDATION_FAILED'));
+    expect((result as Err).failure, isA<ServerFailure>().having((f) => f.code, 'code', 'INVALID_ACTIVATION_CODE'));
     expect(store.values.keys, ['terminal_hardware_id']); // the terminal's own id only, no credentials
     expect(await r.currentSession(), isNull);
   });
 
+  test('device limit: 402 failure keeps its code', () async {
+    final r = repo(
+      _Adapter(402, '{"error":{"code":"DEVICE_LIMIT_REACHED","message":"Device limit reached.","retryable":false}}'),
+      MemorySecureStore(),
+    );
+    final failure = ((await r.setup(code: 'ABCD-EFGH-JKMN', deviceName: 'POS-1')) as Err).failure;
+    expect(failure, isA<ServerFailure>().having((f) => f.statusCode, 'status', 402));
+    expect((failure as ServerFailure).code, 'DEVICE_LIMIT_REACHED');
+  });
+
   test('server paired but secure storage fails: clear failure, not a stuck screen', () async {
     final r = repo(_Adapter(201, fixture), _FailingStore());
-    final result = await r.register(storeCode: 'ST-0007', registrationCode: '483920', deviceName: 'POS-1');
+    final result = await r.setup(code: 'ABCD-EFGH-JKMN', deviceName: 'POS-1');
     final failure = (result as Err).failure;
     expect(failure, isA<UnexpectedFailure>());
     expect(failure.userMessage, contains('Ask for a new code'));
   });
 
-  test('preview parses store and kiosks and adds the stable device id', () async {
+  test('response without an activation block still pairs (the gate asks the server)', () async {
+    final body = Map<String, dynamic>.from(jsonDecode(fixture) as Map)..remove('activation');
+    final store = MemorySecureStore();
+    final local = DeviceLocalDataSource(store);
+    final adapter = _Adapter(201, jsonEncode(body));
+    final dio = createDio(config)..httpClientAdapter = adapter;
+    final activations = ActivationRepositoryImpl(DeviceRemoteDataSource(dio), local, config);
+    final result = await repo(adapter, store, activations: activations).setup(code: 'ABCD-EFGH-JKMN', deviceName: 'P');
+    expect(result, isA<Success<DeviceSession>>());
+    expect(await activations.cached(), isNull);
+  });
+
+  test('preview sends the formatted code and parses store, kiosks, roles and the re-paired device', () async {
     final adapter = _Adapter(
       200,
       '{"store":{"id":"s1","code":"ST-0007","name":"Khyber Darbar"},'
-      '"kiosks":[{"id":"k1","name":"U Kiosk"}],"device_types":["CASHIER","CAPTAIN"],"re_pair":false}',
+      '"kiosks":[{"id":"k1","name":"U Kiosk"}],"device_types":["CASHIER","CAPTAIN"],"re_pair":true,'
+      '"device":{"id":"d1","code":"P3","name":"Front till"}}',
     );
-    final store = MemorySecureStore();
-    final r = repo(adapter, store);
+    final r = repo(adapter, MemorySecureStore());
 
-    final p =
-        ((await r.preview(storeCode: 'ST-0007', registrationCode: '483920')) as Success<RegistrationPreview>).value;
+    final p = ((await r.preview('abcdefghjkmn')) as Success<SetupPreview>).value;
 
-    expect(jsonDecode(adapter.sentBody!), {'store_code': 'ST-0007', 'registration_code': '483920'});
-    expect(p.storeName, 'Khyber Darbar');
-    expect(p.kiosks, [const KioskOption(id: 'k1', name: 'U Kiosk')]);
-    expect(p.hardwareId, matches(RegExp(r'^[0-9A-F-]{36}$')));
-    final again =
-        ((await r.preview(storeCode: 'ST-0007', registrationCode: '483920')) as Success<RegistrationPreview>).value;
-    expect(again.hardwareId, p.hardwareId);
+    expect(adapter.path, '/devices/setup/preview');
+    expect(jsonDecode(adapter.sentBody!), {'code': 'ABCD-EFGH-JKMN'});
+    expect(
+      p,
+      const SetupPreview(
+        storeId: 's1',
+        storeCode: 'ST-0007',
+        storeName: 'Khyber Darbar',
+        kiosks: [KioskOption(id: 'k1', name: 'U Kiosk')],
+        deviceTypes: [DeviceType.cashier, DeviceType.captain],
+        rePair: true,
+        deviceCode: 'P3',
+        deviceName: 'Front till',
+      ),
+    );
+  });
+
+  test('preview: invalid code comes back as a failure', () async {
+    final r = repo(
+      _Adapter(422, '{"error":{"code":"INVALID_ACTIVATION_CODE","message":"Invalid activation code."}}'),
+      MemorySecureStore(),
+    );
+    final failure = ((await r.preview('ABCD-EFGH-JKMN')) as Err).failure;
+    expect(failure, isA<ServerFailure>().having((f) => f.code, 'code', 'INVALID_ACTIVATION_CODE'));
+  });
+
+  test('hardware id is stable across calls', () async {
+    final r = repo(_Adapter(200, '{}'), MemorySecureStore());
+    final id = await r.hardwareId();
+    expect(id, matches(RegExp(r'^[0-9A-F-]{36}$')));
+    expect(await r.hardwareId(), id);
   });
 
   test('session stored before roles existed reads as a cashier', () async {

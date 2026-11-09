@@ -8,9 +8,8 @@ import '../../../../core/network/request_signer.dart';
 
 import '../models/device_activation_model.dart';
 import '../models/device_registration_model.dart';
+import '../models/device_setup_models.dart';
 import '../models/device_status_model.dart';
-import '../models/register_device_request.dart';
-import '../models/registration_preview_model.dart';
 
 /// HTTP calls of the device_setup feature. Throws [DioException]; the repository maps it.
 class DeviceRemoteDataSource {
@@ -18,23 +17,35 @@ class DeviceRemoteDataSource {
 
   final Dio _dio;
 
-  Future<DeviceRegistrationModel> register(RegisterDeviceRequest request) async {
+  /// `POST /devices/setup/preview`: checks an activation code without using it up; returns the store
+  /// and its kiosks. 422 INVALID_ACTIVATION_CODE comes back as [DioException].
+  Future<SetupPreviewModel> previewSetup(String code) async {
     final res = await _dio.post<Map<String, dynamic>>(
-      '/devices/register',
+      '/devices/setup/preview',
+      data: {'code': code},
+      options: Options(extra: {'public': true}), // no credentials yet
+    );
+    return SetupPreviewModel.fromJson(res.data!);
+  }
+
+  /// `POST /devices/setup`: pairs and activates this terminal in one call. The body is the device
+  /// credentials plus its `activation` block (null when the server sent none).
+  Future<({DeviceRegistrationModel device, DeviceActivationModel? activation, DateTime? serverTime})> setup(
+    SetupDeviceRequest request,
+  ) async {
+    final res = await _dio.post<Map<String, dynamic>>(
+      '/devices/setup',
       data: request.toJson(),
       options: Options(extra: {'public': true}), // no credentials yet
     );
-    return DeviceRegistrationModel.fromJson(res.data!);
-  }
-
-  /// Checks the codes without using them up; returns store name and kiosks.
-  Future<RegistrationPreviewModel> preview({required String storeCode, required String registrationCode}) async {
-    final res = await _dio.post<Map<String, dynamic>>(
-      '/devices/register/preview',
-      data: {'store_code': storeCode, 'registration_code': registrationCode},
-      options: Options(extra: {'public': true}),
+    final body = res.data!;
+    final device = DeviceRegistrationModel.fromJson(body);
+    final block = body['activation'];
+    return (
+      device: device,
+      activation: block is Map ? DeviceActivationModel.fromJson(Map<String, dynamic>.from(block)) : null,
+      serverTime: device.serverTime ?? _dateHeader(res),
     );
-    return RegistrationPreviewModel.fromJson(res.data!);
   }
 
   /// `POST /devices/token/refresh`: signed with the device secret, no bearer token.

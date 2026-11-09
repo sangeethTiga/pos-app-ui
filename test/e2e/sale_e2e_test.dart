@@ -29,7 +29,7 @@ import 'package:pos_app_ui/features/sync/domain/sync_engine.dart';
 /// pair -> sync catalogue + users -> PIN login -> open shift -> sell (card + cash with rounding)
 /// -> push -> server applied everything (no rejection) -> close shift -> day close -> push.
 ///
-/// E2E_BASE_URL=... E2E_STORE_CODE=... E2E_REG_CODE=... E2E_PIN=1234 flutter test --tags e2e test/e2e/sale_e2e_test.dart
+/// E2E_BASE_URL=... E2E_ACTIVATION_CODE=... E2E_PIN=1234 flutter test --tags e2e test/e2e/sale_e2e_test.dart
 void main() {
   final env = Platform.environment;
   final base = env['E2E_BASE_URL'];
@@ -51,13 +51,9 @@ void main() {
       final dio = createDio(config, interceptors: [DeviceAuthInterceptor(local, RequestSigner(), retryClient: plain)]);
       final devices = DeviceRepositoryImpl(DeviceRemoteDataSource(dio), local, config, platform: 'windows');
 
-      final session = switch (await devices.register(
-        storeCode: env['E2E_STORE_CODE']!,
-        registrationCode: env['E2E_REG_CODE']!,
-        deviceName: 'E2E till',
-      )) {
+      final session = switch (await devices.setup(code: env['E2E_ACTIVATION_CODE']!, deviceName: 'E2E till')) {
         Success(:final value) => value,
-        Err(:final failure) => fail('register: $failure'),
+        Err(:final failure) => fail('setup: $failure'),
       };
 
       // forced refresh works against the real server

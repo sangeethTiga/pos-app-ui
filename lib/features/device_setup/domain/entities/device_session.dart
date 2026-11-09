@@ -19,7 +19,7 @@ abstract class StoreInfo with _$StoreInfo {
   }) = _StoreInfo;
 }
 
-/// Role of this terminal, chosen at registration.
+/// Role of this terminal, chosen at setup.
 enum DeviceType {
   /// Billing terminal: opens shifts, takes payments.
   cashier,
@@ -33,13 +33,13 @@ enum DeviceType {
   static DeviceType fromWire(String? v) => v == 'CAPTAIN' ? captain : cashier;
 }
 
-/// Role and screen settings chosen on the registration screen.
+/// Role and screen settings chosen on the setup screen.
 @freezed
 abstract class DeviceProfile with _$DeviceProfile {
   const factory DeviceProfile({
     @Default(DeviceType.cashier) DeviceType deviceType,
 
-    /// This terminal's own id (shown with a copy button on the registration screen).
+    /// This terminal's own id (shown with a copy button on the setup screen).
     String? hardwareId,
     String? kioskId,
     String? kioskName,
@@ -54,21 +54,23 @@ abstract class KioskOption with _$KioskOption {
   const factory KioskOption({required String id, required String name}) = _KioskOption;
 }
 
-/// `POST /devices/register/preview`: the store behind the codes and its kiosks.
+/// `POST /devices/setup/preview`: the store behind an activation code and its kiosks.
 @freezed
-abstract class RegistrationPreview with _$RegistrationPreview {
-  const factory RegistrationPreview({
+abstract class SetupPreview with _$SetupPreview {
+  const factory SetupPreview({
     required String storeId,
     required String storeCode,
     required String storeName,
     @Default(<KioskOption>[]) List<KioskOption> kiosks,
 
-    /// The code re-pairs an existing terminal (same P-code).
-    @Default(false) bool rePair,
+    /// Roles the store allows (empty: all).
+    @Default(<DeviceType>[]) List<DeviceType> deviceTypes,
 
-    /// This terminal's own id.
-    required String hardwareId,
-  }) = _RegistrationPreview;
+    /// The code re-pairs an existing terminal (same P-code): [deviceCode] / [deviceName].
+    @Default(false) bool rePair,
+    String? deviceCode,
+    String? deviceName,
+  }) = _SetupPreview;
 }
 
 /// A paired terminal: identity, store and credentials.

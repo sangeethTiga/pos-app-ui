@@ -1,3 +1,4 @@
+import '../../../../core/error/failure.dart';
 import '../../domain/entities/device_activation.dart';
 
 const _months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -36,4 +37,15 @@ String expiryWarning(int days) => switch (days) {
   <= 0 => 'Activation expires today',
   1 => 'Activation expires in 1 day',
   _ => 'Activation expires in $days days',
+};
+
+/// Why the setup page refused an activation code or could not pair (shown as is).
+String setupFailureMessage(Failure f) => switch (f) {
+  ServerFailure(code: 'INVALID_ACTIVATION_CODE') =>
+    'This activation code is not valid, or it has expired or was already used.',
+  ServerFailure(code: 'INVALID_KIOSK') => 'The selected kiosk is not available in this store. Choose another kiosk.',
+  ServerFailure(code: 'DEVICE_LIMIT_REACHED') =>
+    'This store has reached its terminal limit. Ask your administrator to free a terminal or raise the limit.',
+  ServerFailure(statusCode: 429) => 'Too many attempts. Wait a minute and try again.',
+  _ => f.userMessage,
 };

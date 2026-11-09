@@ -300,7 +300,7 @@ as bool,
 /// @nodoc
 mixin _$DeviceProfile {
 
- DeviceType get deviceType;/// This terminal's own id (shown with a copy button on the registration screen).
+ DeviceType get deviceType;/// This terminal's own id (shown with a copy button on the setup screen).
  String? get hardwareId; String? get kioskId; String? get kioskName; bool get kioskWiseOrderListing; bool get deliveryManagerPos; bool get settleAssignedOrdersOnly;
 /// Create a copy of DeviceProfile
 /// with the given fields replaced by the non-null parameter values.
@@ -508,7 +508,7 @@ class _DeviceProfile implements DeviceProfile {
   
 
 @override@JsonKey() final  DeviceType deviceType;
-/// This terminal's own id (shown with a copy button on the registration screen).
+/// This terminal's own id (shown with a copy button on the setup screen).
 @override final  String? hardwareId;
 @override final  String? kioskId;
 @override final  String? kioskName;
@@ -849,47 +849,47 @@ as String,
 }
 
 /// @nodoc
-mixin _$RegistrationPreview {
+mixin _$SetupPreview {
 
- String get storeId; String get storeCode; String get storeName; List<KioskOption> get kiosks;/// The code re-pairs an existing terminal (same P-code).
- bool get rePair;/// This terminal's own id.
- String get hardwareId;
-/// Create a copy of RegistrationPreview
+ String get storeId; String get storeCode; String get storeName; List<KioskOption> get kiosks;/// Roles the store allows (empty: all).
+ List<DeviceType> get deviceTypes;/// The code re-pairs an existing terminal (same P-code): [deviceCode] / [deviceName].
+ bool get rePair; String? get deviceCode; String? get deviceName;
+/// Create a copy of SetupPreview
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
 @pragma('vm:prefer-inline')
-$RegistrationPreviewCopyWith<RegistrationPreview> get copyWith => _$RegistrationPreviewCopyWithImpl<RegistrationPreview>(this as RegistrationPreview, _$identity);
+$SetupPreviewCopyWith<SetupPreview> get copyWith => _$SetupPreviewCopyWithImpl<SetupPreview>(this as SetupPreview, _$identity);
 
 
 
 @override
 bool operator ==(Object other) {
-  final _this = this as RegistrationPreview;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is RegistrationPreview&&(identical(other.storeId, _this.storeId) || other.storeId == _this.storeId)&&(identical(other.storeCode, _this.storeCode) || other.storeCode == _this.storeCode)&&(identical(other.storeName, _this.storeName) || other.storeName == _this.storeName)&&const DeepCollectionEquality().equals(other.kiosks, _this.kiosks)&&(identical(other.rePair, _this.rePair) || other.rePair == _this.rePair)&&(identical(other.hardwareId, _this.hardwareId) || other.hardwareId == _this.hardwareId));
+  final _this = this as SetupPreview;
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is SetupPreview&&(identical(other.storeId, _this.storeId) || other.storeId == _this.storeId)&&(identical(other.storeCode, _this.storeCode) || other.storeCode == _this.storeCode)&&(identical(other.storeName, _this.storeName) || other.storeName == _this.storeName)&&const DeepCollectionEquality().equals(other.kiosks, _this.kiosks)&&const DeepCollectionEquality().equals(other.deviceTypes, _this.deviceTypes)&&(identical(other.rePair, _this.rePair) || other.rePair == _this.rePair)&&(identical(other.deviceCode, _this.deviceCode) || other.deviceCode == _this.deviceCode)&&(identical(other.deviceName, _this.deviceName) || other.deviceName == _this.deviceName));
 }
 
 
 @override
 int get hashCode {
-  final _this = this as RegistrationPreview;
-  return Object.hash(runtimeType,_this.storeId,_this.storeCode,_this.storeName,const DeepCollectionEquality().hash(_this.kiosks),_this.rePair,_this.hardwareId);
+  final _this = this as SetupPreview;
+  return Object.hash(runtimeType,_this.storeId,_this.storeCode,_this.storeName,const DeepCollectionEquality().hash(_this.kiosks),const DeepCollectionEquality().hash(_this.deviceTypes),_this.rePair,_this.deviceCode,_this.deviceName);
 }
 
 @override
 String toString() {
-  final _this = this as RegistrationPreview;
-  return 'RegistrationPreview(storeId: ${_this.storeId}, storeCode: ${_this.storeCode}, storeName: ${_this.storeName}, kiosks: ${_this.kiosks}, rePair: ${_this.rePair}, hardwareId: ${_this.hardwareId})';
+  final _this = this as SetupPreview;
+  return 'SetupPreview(storeId: ${_this.storeId}, storeCode: ${_this.storeCode}, storeName: ${_this.storeName}, kiosks: ${_this.kiosks}, deviceTypes: ${_this.deviceTypes}, rePair: ${_this.rePair}, deviceCode: ${_this.deviceCode}, deviceName: ${_this.deviceName})';
 }
 
 
 }
 
 /// @nodoc
-abstract mixin class $RegistrationPreviewCopyWith<$Res>  {
-  factory $RegistrationPreviewCopyWith(RegistrationPreview value, $Res Function(RegistrationPreview) _then) = _$RegistrationPreviewCopyWithImpl;
+abstract mixin class $SetupPreviewCopyWith<$Res>  {
+  factory $SetupPreviewCopyWith(SetupPreview value, $Res Function(SetupPreview) _then) = _$SetupPreviewCopyWithImpl;
 @useResult
 $Res call({
- String storeId, String storeCode, String storeName, List<KioskOption> kiosks, bool rePair, String hardwareId
+ String storeId, String storeCode, String storeName, List<KioskOption> kiosks, List<DeviceType> deviceTypes, bool rePair, String? deviceCode, String? deviceName
 });
 
 
@@ -897,32 +897,34 @@ $Res call({
 
 }
 /// @nodoc
-class _$RegistrationPreviewCopyWithImpl<$Res>
-    implements $RegistrationPreviewCopyWith<$Res> {
-  _$RegistrationPreviewCopyWithImpl(this._self, this._then);
+class _$SetupPreviewCopyWithImpl<$Res>
+    implements $SetupPreviewCopyWith<$Res> {
+  _$SetupPreviewCopyWithImpl(this._self, this._then);
 
-  final RegistrationPreview _self;
-  final $Res Function(RegistrationPreview) _then;
+  final SetupPreview _self;
+  final $Res Function(SetupPreview) _then;
 
-/// Create a copy of RegistrationPreview
+/// Create a copy of SetupPreview
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? storeId = null,Object? storeCode = null,Object? storeName = null,Object? kiosks = null,Object? rePair = null,Object? hardwareId = null,}) {
-  return _then(RegistrationPreview(
+@pragma('vm:prefer-inline') @override $Res call({Object? storeId = null,Object? storeCode = null,Object? storeName = null,Object? kiosks = null,Object? deviceTypes = null,Object? rePair = null,Object? deviceCode = freezed,Object? deviceName = freezed,}) {
+  return _then(SetupPreview(
 storeId: null == storeId ? _self.storeId : storeId // ignore: cast_nullable_to_non_nullable
 as String,storeCode: null == storeCode ? _self.storeCode : storeCode // ignore: cast_nullable_to_non_nullable
 as String,storeName: null == storeName ? _self.storeName : storeName // ignore: cast_nullable_to_non_nullable
 as String,kiosks: null == kiosks ? _self.kiosks : kiosks // ignore: cast_nullable_to_non_nullable
-as List<KioskOption>,rePair: null == rePair ? _self.rePair : rePair // ignore: cast_nullable_to_non_nullable
-as bool,hardwareId: null == hardwareId ? _self.hardwareId : hardwareId // ignore: cast_nullable_to_non_nullable
-as String,
+as List<KioskOption>,deviceTypes: null == deviceTypes ? _self.deviceTypes : deviceTypes // ignore: cast_nullable_to_non_nullable
+as List<DeviceType>,rePair: null == rePair ? _self.rePair : rePair // ignore: cast_nullable_to_non_nullable
+as bool,deviceCode: freezed == deviceCode ? _self.deviceCode : deviceCode // ignore: cast_nullable_to_non_nullable
+as String?,deviceName: freezed == deviceName ? _self.deviceName : deviceName // ignore: cast_nullable_to_non_nullable
+as String?,
   ));
 }
 
 }
 
 
-/// Adds pattern-matching-related methods to [RegistrationPreview].
-extension RegistrationPreviewPatterns on RegistrationPreview {
+/// Adds pattern-matching-related methods to [SetupPreview].
+extension SetupPreviewPatterns on SetupPreview {
 /// A variant of `map` that fallback to returning `orElse`.
 ///
 /// It is equivalent to doing:
@@ -935,10 +937,10 @@ extension RegistrationPreviewPatterns on RegistrationPreview {
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _RegistrationPreview value)?  $default,{required TResult orElse(),}){
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _SetupPreview value)?  $default,{required TResult orElse(),}){
 final _that = this;
 switch (_that) {
-case _RegistrationPreview() when $default != null:
+case _SetupPreview() when $default != null:
 return $default(_that);case _:
   return orElse();
 
@@ -957,10 +959,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _RegistrationPreview value)  $default,){
+@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _SetupPreview value)  $default,){
 final _that = this;
 switch (_that) {
-case _RegistrationPreview():
+case _SetupPreview():
 return $default(_that);case _:
   throw StateError('Unexpected subclass');
 
@@ -978,10 +980,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _RegistrationPreview value)?  $default,){
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _SetupPreview value)?  $default,){
 final _that = this;
 switch (_that) {
-case _RegistrationPreview() when $default != null:
+case _SetupPreview() when $default != null:
 return $default(_that);case _:
   return null;
 
@@ -999,10 +1001,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String storeId,  String storeCode,  String storeName,  List<KioskOption> kiosks,  bool rePair,  String hardwareId)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String storeId,  String storeCode,  String storeName,  List<KioskOption> kiosks,  List<DeviceType> deviceTypes,  bool rePair,  String? deviceCode,  String? deviceName)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
-case _RegistrationPreview() when $default != null:
-return $default(_that.storeId,_that.storeCode,_that.storeName,_that.kiosks,_that.rePair,_that.hardwareId);case _:
+case _SetupPreview() when $default != null:
+return $default(_that.storeId,_that.storeCode,_that.storeName,_that.kiosks,_that.deviceTypes,_that.rePair,_that.deviceCode,_that.deviceName);case _:
   return orElse();
 
 }
@@ -1020,10 +1022,10 @@ return $default(_that.storeId,_that.storeCode,_that.storeName,_that.kiosks,_that
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String storeId,  String storeCode,  String storeName,  List<KioskOption> kiosks,  bool rePair,  String hardwareId)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String storeId,  String storeCode,  String storeName,  List<KioskOption> kiosks,  List<DeviceType> deviceTypes,  bool rePair,  String? deviceCode,  String? deviceName)  $default,) {final _that = this;
 switch (_that) {
-case _RegistrationPreview():
-return $default(_that.storeId,_that.storeCode,_that.storeName,_that.kiosks,_that.rePair,_that.hardwareId);case _:
+case _SetupPreview():
+return $default(_that.storeId,_that.storeCode,_that.storeName,_that.kiosks,_that.deviceTypes,_that.rePair,_that.deviceCode,_that.deviceName);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -1040,10 +1042,10 @@ return $default(_that.storeId,_that.storeCode,_that.storeName,_that.kiosks,_that
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String storeId,  String storeCode,  String storeName,  List<KioskOption> kiosks,  bool rePair,  String hardwareId)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String storeId,  String storeCode,  String storeName,  List<KioskOption> kiosks,  List<DeviceType> deviceTypes,  bool rePair,  String? deviceCode,  String? deviceName)?  $default,) {final _that = this;
 switch (_that) {
-case _RegistrationPreview() when $default != null:
-return $default(_that.storeId,_that.storeCode,_that.storeName,_that.kiosks,_that.rePair,_that.hardwareId);case _:
+case _SetupPreview() when $default != null:
+return $default(_that.storeId,_that.storeCode,_that.storeName,_that.kiosks,_that.deviceTypes,_that.rePair,_that.deviceCode,_that.deviceName);case _:
   return null;
 
 }
@@ -1054,8 +1056,8 @@ return $default(_that.storeId,_that.storeCode,_that.storeName,_that.kiosks,_that
 /// @nodoc
 
 
-class _RegistrationPreview implements RegistrationPreview {
-  const _RegistrationPreview({required this.storeId, required this.storeCode, required this.storeName,  List<KioskOption> kiosks = const <KioskOption>[], this.rePair = false, required this.hardwareId}): _kiosks = kiosks;
+class _SetupPreview implements SetupPreview {
+  const _SetupPreview({required this.storeId, required this.storeCode, required this.storeName,  List<KioskOption> kiosks = const <KioskOption>[],  List<DeviceType> deviceTypes = const <DeviceType>[], this.rePair = false, this.deviceCode, this.deviceName}): _kiosks = kiosks,_deviceTypes = deviceTypes;
   
 
 @override final  String storeId;
@@ -1068,44 +1070,53 @@ class _RegistrationPreview implements RegistrationPreview {
   return EqualUnmodifiableListView(_kiosks);
 }
 
-/// The code re-pairs an existing terminal (same P-code).
-@override@JsonKey() final  bool rePair;
-/// This terminal's own id.
-@override final  String hardwareId;
+/// Roles the store allows (empty: all).
+ final  List<DeviceType> _deviceTypes;
+/// Roles the store allows (empty: all).
+@override@JsonKey() List<DeviceType> get deviceTypes {
+  if (_deviceTypes is EqualUnmodifiableListView) return _deviceTypes;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableListView(_deviceTypes);
+}
 
-/// Create a copy of RegistrationPreview
+/// The code re-pairs an existing terminal (same P-code): [deviceCode] / [deviceName].
+@override@JsonKey() final  bool rePair;
+@override final  String? deviceCode;
+@override final  String? deviceName;
+
+/// Create a copy of SetupPreview
 /// with the given fields replaced by the non-null parameter values.
 @override @JsonKey(includeFromJson: false, includeToJson: false)
 @pragma('vm:prefer-inline')
-_$RegistrationPreviewCopyWith<_RegistrationPreview> get copyWith => __$RegistrationPreviewCopyWithImpl<_RegistrationPreview>(this, _$identity);
+_$SetupPreviewCopyWith<_SetupPreview> get copyWith => __$SetupPreviewCopyWithImpl<_SetupPreview>(this, _$identity);
 
 
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _RegistrationPreview&&(identical(other.storeId, storeId) || other.storeId == storeId)&&(identical(other.storeCode, storeCode) || other.storeCode == storeCode)&&(identical(other.storeName, storeName) || other.storeName == storeName)&&const DeepCollectionEquality().equals(other.kiosks, _kiosks)&&(identical(other.rePair, rePair) || other.rePair == rePair)&&(identical(other.hardwareId, hardwareId) || other.hardwareId == hardwareId));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _SetupPreview&&(identical(other.storeId, storeId) || other.storeId == storeId)&&(identical(other.storeCode, storeCode) || other.storeCode == storeCode)&&(identical(other.storeName, storeName) || other.storeName == storeName)&&const DeepCollectionEquality().equals(other.kiosks, _kiosks)&&const DeepCollectionEquality().equals(other.deviceTypes, _deviceTypes)&&(identical(other.rePair, rePair) || other.rePair == rePair)&&(identical(other.deviceCode, deviceCode) || other.deviceCode == deviceCode)&&(identical(other.deviceName, deviceName) || other.deviceName == deviceName));
 }
 
 
 @override
 int get hashCode {
-    return Object.hash(runtimeType,storeId,storeCode,storeName,const DeepCollectionEquality().hash(_kiosks),rePair,hardwareId);
+    return Object.hash(runtimeType,storeId,storeCode,storeName,const DeepCollectionEquality().hash(_kiosks),const DeepCollectionEquality().hash(_deviceTypes),rePair,deviceCode,deviceName);
 }
 
 @override
 String toString() {
-    return 'RegistrationPreview(storeId: $storeId, storeCode: $storeCode, storeName: $storeName, kiosks: $kiosks, rePair: $rePair, hardwareId: $hardwareId)';
+    return 'SetupPreview(storeId: $storeId, storeCode: $storeCode, storeName: $storeName, kiosks: $kiosks, deviceTypes: $deviceTypes, rePair: $rePair, deviceCode: $deviceCode, deviceName: $deviceName)';
 }
 
 
 }
 
 /// @nodoc
-abstract mixin class _$RegistrationPreviewCopyWith<$Res> implements $RegistrationPreviewCopyWith<$Res> {
-  factory _$RegistrationPreviewCopyWith(_RegistrationPreview value, $Res Function(_RegistrationPreview) _then) = __$RegistrationPreviewCopyWithImpl;
+abstract mixin class _$SetupPreviewCopyWith<$Res> implements $SetupPreviewCopyWith<$Res> {
+  factory _$SetupPreviewCopyWith(_SetupPreview value, $Res Function(_SetupPreview) _then) = __$SetupPreviewCopyWithImpl;
 @override @useResult
 $Res call({
- String storeId, String storeCode, String storeName, List<KioskOption> kiosks, bool rePair, String hardwareId
+ String storeId, String storeCode, String storeName, List<KioskOption> kiosks, List<DeviceType> deviceTypes, bool rePair, String? deviceCode, String? deviceName
 });
 
 
@@ -1113,24 +1124,26 @@ $Res call({
 
 }
 /// @nodoc
-class __$RegistrationPreviewCopyWithImpl<$Res>
-    implements _$RegistrationPreviewCopyWith<$Res> {
-  __$RegistrationPreviewCopyWithImpl(this._self, this._then);
+class __$SetupPreviewCopyWithImpl<$Res>
+    implements _$SetupPreviewCopyWith<$Res> {
+  __$SetupPreviewCopyWithImpl(this._self, this._then);
 
-  final _RegistrationPreview _self;
-  final $Res Function(_RegistrationPreview) _then;
+  final _SetupPreview _self;
+  final $Res Function(_SetupPreview) _then;
 
-/// Create a copy of RegistrationPreview
+/// Create a copy of SetupPreview
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? storeId = null,Object? storeCode = null,Object? storeName = null,Object? kiosks = null,Object? rePair = null,Object? hardwareId = null,}) {
-  return _then(_RegistrationPreview(
+@override @pragma('vm:prefer-inline') $Res call({Object? storeId = null,Object? storeCode = null,Object? storeName = null,Object? kiosks = null,Object? deviceTypes = null,Object? rePair = null,Object? deviceCode = freezed,Object? deviceName = freezed,}) {
+  return _then(_SetupPreview(
 storeId: null == storeId ? _self.storeId : storeId // ignore: cast_nullable_to_non_nullable
 as String,storeCode: null == storeCode ? _self.storeCode : storeCode // ignore: cast_nullable_to_non_nullable
 as String,storeName: null == storeName ? _self.storeName : storeName // ignore: cast_nullable_to_non_nullable
 as String,kiosks: null == kiosks ? _self._kiosks : kiosks // ignore: cast_nullable_to_non_nullable
-as List<KioskOption>,rePair: null == rePair ? _self.rePair : rePair // ignore: cast_nullable_to_non_nullable
-as bool,hardwareId: null == hardwareId ? _self.hardwareId : hardwareId // ignore: cast_nullable_to_non_nullable
-as String,
+as List<KioskOption>,deviceTypes: null == deviceTypes ? _self._deviceTypes : deviceTypes // ignore: cast_nullable_to_non_nullable
+as List<DeviceType>,rePair: null == rePair ? _self.rePair : rePair // ignore: cast_nullable_to_non_nullable
+as bool,deviceCode: freezed == deviceCode ? _self.deviceCode : deviceCode // ignore: cast_nullable_to_non_nullable
+as String?,deviceName: freezed == deviceName ? _self.deviceName : deviceName // ignore: cast_nullable_to_non_nullable
+as String?,
   ));
 }
 

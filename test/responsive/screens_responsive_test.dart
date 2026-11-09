@@ -97,24 +97,30 @@ Future<void> _checkAll(WidgetTester tester, Size screen) async {
   }
   await tearDownPos(tester);
 
-  // Device registration, both steps.
+  // Terminal setup: one page (activation code + settings), before and after the code is checked.
   final setup = _SetupBloc();
-  whenListen(setup, const Stream<DeviceSetupState>.empty(), initialState: const DeviceSetupState.unpaired());
+  whenListen(
+    setup,
+    const Stream<DeviceSetupState>.empty(),
+    initialState: const DeviceSetupState.unpaired(hardwareId: '4C05435D-18E8-5BC2-BA98-6A4C4CFE79BB'),
+  );
   Widget setupApp() => MaterialApp(
     builder: clampTextScale,
     home: BlocProvider<DeviceSetupBloc>.value(value: setup, child: const DeviceSetupPage()),
   );
   await tester.pumpWidget(setupApp());
   await tester.pumpAndSettle();
-  await _reachable(tester, find.byKey(const Key('storeCode')), 'setup store code');
-  await _reachable(tester, find.byKey(const Key('continueButton')), 'setup continue');
-  _centred(tester, find.byKey(const Key('storeCode')), screen);
+  await _reachable(tester, find.byKey(const Key('activationCodeField')), 'setup activation code');
+  await _reachable(tester, find.byKey(const Key('activateButton')), 'setup activate');
+  _centred(tester, find.byKey(const Key('activationCodeField')), screen);
 
   whenListen(
     setup,
     const Stream<DeviceSetupState>.empty(),
-    initialState: const DeviceSetupState.ready(
-      RegistrationPreview(
+    initialState: const DeviceSetupState.unpaired(
+      hardwareId: '4C05435D-18E8-5BC2-BA98-6A4C4CFE79BB',
+      code: 'ABCD-EFGH-JKMN',
+      preview: SetupPreview(
         storeId: 's1',
         storeCode: 'ST-0007',
         storeName: 'Al Noor Restaurant and Cafeteria Deira Branch',
@@ -122,7 +128,6 @@ Future<void> _checkAll(WidgetTester tester, Size screen) async {
           KioskOption(id: 'k1', name: 'U Kiosk'),
           KioskOption(id: 'k2', name: 'Drive-through kiosk'),
         ],
-        hardwareId: '4C05435D-18E8-5BC2-BA98-6A4C4CFE79BB',
       ),
     ),
   );
@@ -132,7 +137,7 @@ Future<void> _checkAll(WidgetTester tester, Size screen) async {
   for (final k in ['deviceName', 'copyHardwareId', 'kiosk', 'kioskWise', 'type-captain', 'settleAssignedOnly']) {
     await _reachable(tester, find.byKey(Key(k)), 'setup $k');
   }
-  await _reachable(tester, find.byKey(const Key('registerButton')), 'setup register');
+  await _reachable(tester, find.byKey(const Key('activateButton')), 'setup activate');
   _centred(tester, find.byKey(const Key('storeCard')), screen);
 
   // Device status.

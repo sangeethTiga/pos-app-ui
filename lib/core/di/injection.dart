@@ -9,8 +9,9 @@ import '../../features/device_setup/data/repositories/device_repository_impl.dar
 import '../../features/device_setup/domain/repositories/activation_repository.dart';
 import '../../features/device_setup/domain/repositories/device_repository.dart';
 import '../../features/device_setup/domain/usecases/get_current_session.dart';
-import '../../features/device_setup/domain/usecases/preview_registration.dart';
-import '../../features/device_setup/domain/usecases/register_device.dart';
+import '../../features/device_setup/domain/usecases/get_hardware_id.dart';
+import '../../features/device_setup/domain/usecases/preview_setup.dart';
+import '../../features/device_setup/domain/usecases/setup_device.dart';
 import '../../features/device_setup/presentation/bloc/device_setup_bloc.dart';
 import '../../features/device_setup/presentation/cubit/activation_cubit.dart';
 import '../../features/home/presentation/cubit/home_cubit.dart';
@@ -103,10 +104,13 @@ Future<void> configureDependencies({
         activations: sl<ActivationRepository>(),
       ),
     )
-    ..registerFactory(() => RegisterDevice(sl<DeviceRepository>()))
+    ..registerFactory(() => SetupDevice(sl<DeviceRepository>()))
     ..registerFactory(() => GetCurrentSession(sl<DeviceRepository>()))
-    ..registerFactory(() => PreviewRegistration(sl<DeviceRepository>()))
-    ..registerFactory(() => DeviceSetupBloc(sl<RegisterDevice>(), sl<GetCurrentSession>(), sl<PreviewRegistration>()));
+    ..registerFactory(() => PreviewSetup(sl<DeviceRepository>()))
+    ..registerFactory(() => GetHardwareId(sl<DeviceRepository>()))
+    ..registerFactory(
+      () => DeviceSetupBloc(sl<SetupDevice>(), sl<GetCurrentSession>(), sl<PreviewSetup>(), sl<GetHardwareId>()),
+    );
 
   // ---- feature: home -------------------------------------------------------------------
   sl.registerFactory(() => HomeCubit(sl<DeviceRepository>()));

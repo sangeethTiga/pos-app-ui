@@ -25,5 +25,15 @@
     "kiosk_id": "019a5c3e-6a10-7f3d-8b2c-1d2e3f4a5b70",
     "kiosk_name": "U Kiosk",
     "settings": {"kiosk_wise_order_listing": true, "delivery_manager_pos": true, "settle_assigned_orders_only": false}
+  },
+  "activation": {
+    "device_id": "019a5c3e-7d2b-7c11-9a3e-0f6b2d1c4e55",
+    "store_id": "019a5c3e-6a10-7f3d-8b2c-1d2e3f4a5b6c",
+    "status": "ACTIVE",
+    "valid": true,
+    "starts_at": "2026-11-08T07:00:00.000Z",
+    "expires_at": "2026-12-08T07:00:00.000Z",
+    "remaining_days": 30,
+    "activation_id": "019a5c3e-8e00-7000-8000-000000000001"
   }
 }

@@ -23,7 +23,7 @@ import 'package:pos_app_ui/features/sync/domain/sync_engine.dart';
 /// SCHEDULED store: first sync runs as CATCH_UP (store never synced), then nothing moves outside the
 /// schedule, then a manager-authorised manual run (admin panel) is picked up from /sync/config.
 ///
-/// `E2E_BASE_URL=... E2E_STORE_CODE=(scheduled store) E2E_REG_CODE=... E2E_OWNER_EMAIL=... E2E_OWNER_PASSWORD=...`
+/// `E2E_BASE_URL=... E2E_ACTIVATION_CODE=(code for the scheduled store) E2E_OWNER_EMAIL=... E2E_OWNER_PASSWORD=...`
 void main() {
   final env = Platform.environment;
   final base = env['E2E_BASE_URL'];
@@ -33,11 +33,7 @@ void main() {
     final local = DeviceLocalDataSource(MemorySecureStore());
     final dio = createDio(config, interceptors: [DeviceAuthInterceptor(local, RequestSigner())]);
     final devices = DeviceRepositoryImpl(DeviceRemoteDataSource(dio), local, config, platform: 'windows');
-    final session = switch (await devices.register(
-      storeCode: env['E2E_STORE_CODE']!,
-      registrationCode: env['E2E_REG_CODE']!,
-      deviceName: 'E2E scheduled',
-    )) {
+    final session = switch (await devices.setup(code: env['E2E_ACTIVATION_CODE']!, deviceName: 'E2E scheduled')) {
       Success(:final value) => value,
       Err(:final failure) => fail('$failure'),
     };

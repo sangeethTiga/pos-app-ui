@@ -32,13 +32,13 @@ Rules:
 - JSON is snake_case on the wire: set once in `build.yaml` (`field_rename: snake`), so models use camelCase fields.
 - Device credentials live only in secure storage, never in SQLite or logs.
 - Every device request is signed by `DeviceAuthInterceptor` (bearer + `X-Timestamp`/`X-Nonce`/`X-Signature`);
-  pass `Options(extra: {'public': true})` for the unsigned ones (registration, token refresh).
+  pass `Options(extra: {'public': true})` for the unsigned ones (setup, token refresh).
 
 ## Features
 
 | Feature | State | What it does | Status |
 |---|---|---|---|
-| `device_setup` | `DeviceSetupBloc` | Pairing (`POST /devices/register`), credentials in secure storage, token refresh | done, e2e |
+| `device_setup` | `DeviceSetupBloc` | One-page setup: pair + activate with one activation code (`POST /devices/setup/preview`, `POST /devices/setup`), credentials in secure storage, token refresh, activation gate for renewal | done, e2e |
 | `sync` | `SyncEngine`, `SyncScheduler`, `RealtimeClient` | Gateway claim/heartbeat, push (ACK only by `accepted`), pull, CONTINUOUS / MANUAL run / SCHEDULED occurrence + catch-up, Reverb notifications | done, e2e |
 | `staff` | `PinLoginCubit` | Cashier PIN login offline (Argon2id/bcrypt from the server, cached per terminal), lockout after 5 wrong PINs | done |
 | `shift` | `ShiftService` | Business day, open shift with float, cash in / paid out, blind close (expected vs counted), day close | done, e2e |
@@ -69,14 +69,14 @@ Generated `*.g.dart` / `*.freezed.dart` files are committed so the app builds ri
 
 ### End-to-end tests against a real backend
 
-Backend: `php artisan db:seed --class=DemoSeeder`, then a fresh code per test with
-`php artisan pos:registration-code DXB-01` (DXB-01 must be in CONTINUOUS mode for the sale test).
+Backend: `php artisan db:seed --class=DemoSeeder`, then a fresh activation code per test for the store,
+issued by the platform super admin (DXB-01 must be in CONTINUOUS mode for the sale test).
 
 ```bash
 export E2E_BASE_URL=http://localhost:8000/api/v1
-E2E_STORE_CODE=DXB-01 E2E_REG_CODE=<code> flutter test test/e2e/pairing_e2e_test.dart
-E2E_STORE_CODE=DXB-01 E2E_REG_CODE=<code> E2E_PIN=1234 flutter test test/e2e/sale_e2e_test.dart
-E2E_STORE_CODE=DXB-02 E2E_REG_CODE=<code> E2E_OWNER_EMAIL=owner@alnoor.test E2E_OWNER_PASSWORD=password \
+E2E_ACTIVATION_CODE=<code> flutter test test/e2e/pairing_e2e_test.dart
+E2E_ACTIVATION_CODE=<code> E2E_PIN=1234 flutter test test/e2e/sale_e2e_test.dart
+E2E_ACTIVATION_CODE=<DXB-02 code> E2E_OWNER_EMAIL=owner@alnoor.test E2E_OWNER_PASSWORD=password \
   flutter test test/e2e/scheduled_mode_e2e_test.dart
 ```
 The sale test pairs, downloads the catalogue and users, checks a real PIN, opens a shift, sells with

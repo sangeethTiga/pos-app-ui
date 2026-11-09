@@ -10,12 +10,16 @@ import '../../../../app/theme.dart';
 import '../../../../core/error/failure.dart';
 import '../../../../core/responsive/responsive.dart';
 import '../../../terminal/terminal_cubit.dart';
+import '../../domain/activation_policy.dart';
 import '../../domain/entities/device_session.dart';
 import '../bloc/device_setup_bloc.dart';
 import '../cubit/activation_cubit.dart';
+import '../widgets/activation_text.dart';
+import 'activation_gate_page.dart' show ActivationCodeFormatter;
 
-/// Register this terminal. Step 1: store code + one-time registration code from the admin panel.
-/// Step 2 ("Settings"): store, device name, device id, kiosk, cashier / captain, delivery manager flags.
+/// Set up this terminal on one page: the activation code from the platform administrator (checked as
+/// soon as it is complete: store name, kiosks), device name, device id, kiosk, cashier / captain and
+/// delivery manager flags. "Activate" pairs AND activates the terminal in one call.
 class DeviceSetupPage extends StatefulWidget {
   const DeviceSetupPage({super.key});
 
@@ -24,10 +28,8 @@ class DeviceSetupPage extends StatefulWidget {
 }
 
 class _DeviceSetupPageState extends State<DeviceSetupPage> {
-  final _codesForm = GlobalKey<FormState>();
-  final _settingsForm = GlobalKey<FormState>();
-  final _storeCode = TextEditingController();
-  final _registrationCode = TextEditingController();
+  final _form = GlobalKey<FormState>();
+  final _code = TextEditingController();
   final _deviceName = TextEditingController();
 
   String? _kioskId;
@@ -37,30 +39,42 @@ class _DeviceSetupPageState extends State<DeviceSetupPage> {
   bool _settleAssignedOnly = false;
 
   @override
+  void initState() {
+    super.initState();
+    // Opened after an unpair: the bloc still holds the old session; read the stored state again.
+    final bloc = context.read<DeviceSetupBloc>();
+    if (bloc.state is! DeviceSetupUnpaired) bloc.add(const DeviceSetupEvent.started());
+  }
+
+  @override
   void dispose() {
-    _storeCode.dispose();
-    _registrationCode.dispose();
+    _code.dispose();
     _deviceName.dispose();
     super.dispose();
   }
 
   String? _required(String? v) => (v == null || v.trim().isEmpty) ? 'Required' : null;
 
-  void _submitCodes() {
-    if (!_codesForm.currentState!.validate()) return;
-    context.read<DeviceSetupBloc>().add(
-      DeviceSetupEvent.codesSubmitted(storeCode: _storeCode.text, registrationCode: _registrationCode.text),
-    );
-  }
+  String? _completeCode(String? v) =>
+      ActivationCode.isComplete(v ?? '') ? null : 'Enter the 12-character code (XXXX-XXXX-XXXX).';
 
-  void _register() {
-    if (!_settingsForm.currentState!.validate()) return;
-    context.read<DeviceSetupBloc>().add(
-      DeviceSetupEvent.registerSubmitted(
+  void _activate() {
+    if (!_form.currentState!.validate()) return;
+    FocusScope.of(context).unfocus();
+    final bloc = context.read<DeviceSetupBloc>();
+    // Only a kiosk of the store behind the current code (the list goes when the code is edited).
+    final kiosks = switch (bloc.state) {
+      DeviceSetupUnpaired(:final preview?) => preview.kiosks,
+      _ => const <KioskOption>[],
+    };
+    final kioskId = kiosks.any((k) => k.id == _kioskId) ? _kioskId : null;
+    bloc.add(
+      DeviceSetupEvent.activateSubmitted(
+        code: _code.text,
         deviceName: _deviceName.text,
         profile: DeviceProfile(
           deviceType: _type,
-          kioskId: _kioskId,
+          kioskId: kioskId,
           kioskWiseOrderListing: _kioskWise,
           deliveryManagerPos: _deliveryManager,
           settleAssignedOrdersOnly: _settleAssignedOnly,
@@ -69,7 +83,8 @@ class _DeviceSetupPageState extends State<DeviceSetupPage> {
     );
   }
 
-  /// Registered: start the terminal, then the activation gate unless already activated.
+  /// Paired and activated: start the terminal. The activation came with the setup response and is
+  /// already stored, so the gate decision needs no extra round trip.
   Future<void> _start(BuildContext context, DeviceSession session) async {
     context.read<TerminalCubit>().start(session);
     final activation = context.read<ActivationCubit>();
@@ -78,15 +93,25 @@ class _DeviceSetupPageState extends State<DeviceSetupPage> {
     context.go(activation.state.canSell ? Routes.lock : Routes.activation);
   }
 
+  /// A new store behind the code: forget choices that do not fit it.
+  void _onPreview(SetupPreview p) {
+    setState(() {
+      if (!p.kiosks.any((k) => k.id == _kioskId)) _kioskId = null;
+      if (p.deviceTypes.isNotEmpty && !p.deviceTypes.contains(_type)) _type = p.deviceTypes.first;
+    });
+    // Re-pairing an existing terminal: keep its name unless one was typed.
+    if (_deviceName.text.trim().isEmpty && p.deviceName != null) _deviceName.text = p.deviceName!;
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocConsumer<DeviceSetupBloc, DeviceSetupState>(
+      listenWhen: (a, b) =>
+          b is DeviceSetupPaired ||
+          (b is DeviceSetupUnpaired && b.preview != null && (a is! DeviceSetupUnpaired || a.preview != b.preview)),
       listener: (context, state) {
         if (state is DeviceSetupPaired) _start(context, state.session);
-        if (state is DeviceSetupReady && state.failure == null && !state.submitting) {
-          // New store: forget a kiosk picked for another store.
-          if (!state.preview.kiosks.any((k) => k.id == _kioskId)) setState(() => _kioskId = null);
-        }
+        if (state is DeviceSetupUnpaired && state.preview != null) _onPreview(state.preview!);
       },
       builder: (context, state) {
         final r = context.r;
@@ -100,94 +125,24 @@ class _DeviceSetupPageState extends State<DeviceSetupPage> {
           ),
           child: Scaffold(
             backgroundColor: Colors.white,
-            body: SafeArea(child: state is DeviceSetupReady ? _settings(context, state, r) : _codes(context, state, r)),
+            body: SafeArea(
+              child: _page(context, state is DeviceSetupUnpaired ? state : const DeviceSetupUnpaired(), r),
+            ),
           ),
         );
       },
     );
   }
 
-  // ---- Step 1 ---------------------------------------------------------------------------------
-
-  Widget _codes(BuildContext context, DeviceSetupState state, Responsive r) {
-    final busy = state is DeviceSetupVerifying;
-    return Column(
-      children: [
-        const _Header(title: 'Register Device'),
-        Expanded(
-          child: Center(
-            child: SingleChildScrollView(
-              padding: EdgeInsets.all(r.gutter * 1.5),
-              child: ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: math.max(460, r.s(600))),
-                child: _SectionCard(
-                  child: Form(
-                    key: _codesForm,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Text(
-                          'Ask a manager for the store code and a registration code from the admin panel.',
-                          style: Theme.of(context).textTheme.bodyMedium,
-                        ),
-                        const SizedBox(height: 20),
-                        TextFormField(
-                          key: const Key('storeCode'),
-                          controller: _storeCode,
-                          enabled: !busy,
-                          textCapitalization: TextCapitalization.characters,
-                          decoration: _input('Store code*', hint: 'ST-0007'),
-                          validator: _required,
-                        ),
-                        const SizedBox(height: 14),
-                        TextFormField(
-                          key: const Key('registrationCode'),
-                          controller: _registrationCode,
-                          enabled: !busy,
-                          keyboardType: TextInputType.number,
-                          decoration: _input('Registration code*'),
-                          validator: _required,
-                          onFieldSubmitted: (_) => _submitCodes(),
-                        ),
-                        if (state is DeviceSetupFailure) ...[
-                          const SizedBox(height: 14),
-                          _Error(state.failure, key: const Key('setupError')),
-                        ],
-                        const SizedBox(height: 22),
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: _NavyButton(
-                            key: const Key('continueButton'),
-                            label: 'Continue',
-                            busy: busy,
-                            onPressed: _submitCodes,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ---- Step 2 ---------------------------------------------------------------------------------
-
-  Widget _settings(BuildContext context, DeviceSetupReady state, Responsive r) {
+  Widget _page(BuildContext context, DeviceSetupUnpaired state, Responsive r) {
     final p = state.preview;
     final busy = state.submitting;
     final text = Theme.of(context).textTheme;
+    final types = p == null || p.deviceTypes.isEmpty ? DeviceType.values : p.deviceTypes;
+    final kiosks = p?.kiosks ?? const <KioskOption>[];
     return Column(
       children: [
-        _Header(
-          title: 'Settings',
-          onBack: busy ? null : () => context.read<DeviceSetupBloc>().add(const DeviceSetupEvent.back()),
-        ),
+        const _Header(title: 'Set up terminal'),
         Expanded(
           child: SingleChildScrollView(
             padding: EdgeInsets.fromLTRB(r.gutter, 8, r.gutter, r.s(32) + 8),
@@ -196,30 +151,73 @@ class _DeviceSetupPageState extends State<DeviceSetupPage> {
                 // One centred column; wide enough for the cards, not a line across a TV.
                 constraints: BoxConstraints(maxWidth: math.max(560, r.s(860))),
                 child: Form(
-                  key: _settingsForm,
+                  key: _form,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // Store
-                      Container(
-                        key: const Key('storeCard'),
-                        padding: EdgeInsets.symmetric(
-                          horizontal: math.max(16, r.s(28)),
-                          vertical: math.max(16, r.s(24)),
-                        ),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey.shade500),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
+                      // Activation code + the store behind it
+                      _SectionCard(
+                        title: 'Activation code',
                         child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            Text(p.storeName, style: text.titleLarge?.copyWith(fontWeight: FontWeight.w500)),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Store code ${p.storeCode}${p.rePair ? '  ·  re-pairing an existing terminal' : ''}',
-                              style: text.bodySmall?.copyWith(color: Colors.grey.shade600),
+                            Text('Enter the activation code from your platform administrator.', style: text.bodyMedium),
+                            const SizedBox(height: 14),
+                            TextFormField(
+                              key: const Key('activationCodeField'),
+                              controller: _code,
+                              enabled: !busy,
+                              textCapitalization: TextCapitalization.characters,
+                              autocorrect: false,
+                              enableSuggestions: false,
+                              inputFormatters: [ActivationCodeFormatter()],
+                              style: const TextStyle(fontSize: 22, letterSpacing: 2),
+                              decoration: _input('Activation code*', hint: 'XXXX-XXXX-XXXX'),
+                              validator: _completeCode,
+                              onChanged: (v) => context.read<DeviceSetupBloc>().add(DeviceSetupEvent.codeChanged(v)),
                             ),
+                            if (state.checking) ...[
+                              const SizedBox(height: 14),
+                              const Row(
+                                key: Key('previewChecking'),
+                                children: [
+                                  SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2)),
+                                  SizedBox(width: 12),
+                                  Text('Checking the code…'),
+                                ],
+                              ),
+                            ],
+                            if (state.previewFailure case final f?) ...[
+                              const SizedBox(height: 14),
+                              _Error(f, key: const Key('previewError')),
+                            ],
+                            if (p != null) ...[
+                              const SizedBox(height: 14),
+                              Container(
+                                key: const Key('storeCard'),
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: math.max(16, r.s(28)),
+                                  vertical: math.max(16, r.s(24)),
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  border: Border.all(color: Colors.grey.shade500),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(p.storeName, style: text.titleLarge?.copyWith(fontWeight: FontWeight.w500)),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'Store code ${p.storeCode}'
+                                      '${p.rePair ? '  ·  re-pairing terminal ${p.deviceCode ?? ''}'.trimRight() : ''}',
+                                      style: text.bodySmall?.copyWith(color: Colors.grey.shade600),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ),
@@ -232,55 +230,61 @@ class _DeviceSetupPageState extends State<DeviceSetupPage> {
                         decoration: _input('Device name*'),
                         validator: _required,
                       ),
-                      const SizedBox(height: 16),
                       // Device id + copy
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextFormField(
-                              key: const Key('hardwareId'),
-                              initialValue: p.hardwareId,
-                              readOnly: true,
-                              decoration: _input(null),
+                      if (state.hardwareId case final hardwareId?) ...[
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextFormField(
+                                key: const Key('hardwareId'),
+                                initialValue: hardwareId,
+                                readOnly: true,
+                                decoration: _input(null),
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 8),
-                          IconButton(
-                            key: const Key('copyHardwareId'),
-                            tooltip: 'Copy device ID',
-                            icon: const Icon(Icons.copy_outlined, size: 28),
-                            onPressed: () async {
-                              await Clipboard.setData(ClipboardData(text: p.hardwareId));
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context)
-                                    .showSnackBar(const SnackBar(content: Text('Device ID copied')));
-                              }
-                            },
-                          ),
-                        ],
-                      ),
+                            const SizedBox(width: 8),
+                            IconButton(
+                              key: const Key('copyHardwareId'),
+                              tooltip: 'Copy device ID',
+                              icon: const Icon(Icons.copy_outlined, size: 28),
+                              onPressed: () async {
+                                await Clipboard.setData(ClipboardData(text: hardwareId));
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context)
+                                      .showSnackBar(const SnackBar(content: Text('Device ID copied')));
+                                }
+                              },
+                            ),
+                          ],
+                        ),
+                      ],
                       const SizedBox(height: 16),
-                      // Kiosk
+                      // Kiosk (the list comes with the code)
                       _SectionCard(
                         title: 'KIOSK Settings',
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            if (p.kiosks.isNotEmpty) ...[
-                              DropdownButtonFormField<String?>(
-                                key: const Key('kiosk'),
-                                initialValue: _kioskId,
-                                isExpanded: true,
-                                decoration: _input(null),
-                                items: [
-                                  const DropdownMenuItem<String?>(child: Text('No kiosk')),
-                                  for (final k in p.kiosks)
-                                    DropdownMenuItem<String?>(
-                                      value: k.id,
-                                      child: Text(k.name, overflow: TextOverflow.ellipsis),
-                                    ),
-                                ],
-                                onChanged: busy ? null : (v) => setState(() => _kioskId = v),
+                            if (kiosks.isNotEmpty) ...[
+                              // A new store rebuilds the field so a cleared choice shows as cleared.
+                              KeyedSubtree(
+                                key: ValueKey(p?.storeId),
+                                child: DropdownButtonFormField<String?>(
+                                  key: const Key('kiosk'),
+                                  initialValue: _kioskId,
+                                  isExpanded: true,
+                                  decoration: _input(null),
+                                  items: [
+                                    const DropdownMenuItem<String?>(child: Text('No kiosk')),
+                                    for (final k in kiosks)
+                                      DropdownMenuItem<String?>(
+                                        value: k.id,
+                                        child: Text(k.name, overflow: TextOverflow.ellipsis),
+                                      ),
+                                  ],
+                                  onChanged: busy ? null : (v) => setState(() => _kioskId = v),
+                                ),
                               ),
                               const SizedBox(height: 8),
                             ],
@@ -303,7 +307,7 @@ class _DeviceSetupPageState extends State<DeviceSetupPage> {
                           },
                           child: Column(
                             children: [
-                              for (final t in DeviceType.values)
+                              for (final t in types)
                                 InkWell(
                                   key: Key('type-${t.name}'),
                                   onTap: busy ? null : () => setState(() => _type = t),
@@ -359,10 +363,10 @@ class _DeviceSetupPageState extends State<DeviceSetupPage> {
                       Align(
                         alignment: Alignment.centerLeft,
                         child: _NavyButton(
-                          key: const Key('registerButton'),
-                          label: 'Register Device',
+                          key: const Key('activateButton'),
+                          label: 'Activate',
                           busy: busy,
-                          onPressed: _register,
+                          onPressed: _activate,
                         ),
                       ),
                     ],
@@ -391,10 +395,9 @@ class _DeviceSetupPageState extends State<DeviceSetupPage> {
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.title, this.onBack});
+  const _Header({required this.title});
 
   final String title;
-  final VoidCallback? onBack;
 
   @override
   Widget build(BuildContext context) {
@@ -402,29 +405,16 @@ class _Header extends StatelessWidget {
     return SizedBox(
       width: double.infinity,
       height: math.max(56, r.s(72)),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          if (onBack != null)
-            Positioned(
-              left: 4,
-              child: IconButton(
-                key: const Key('backButton'),
-                icon: const Icon(Icons.arrow_back_ios_new),
-                onPressed: onBack,
-              ),
-            ),
-          // Clear of the back button; one line.
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: r.minTap + 12),
-            child: Text(
-              title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(color: Colors.black),
-            ),
+      child: Center(
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: r.minTap + 12),
+          child: Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.headlineMedium?.copyWith(color: Colors.black),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -520,5 +510,5 @@ class _Error extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) =>
-      Text(failure.userMessage, style: TextStyle(color: Theme.of(context).colorScheme.error));
+      Text(setupFailureMessage(failure), style: TextStyle(color: Theme.of(context).colorScheme.error));
 }

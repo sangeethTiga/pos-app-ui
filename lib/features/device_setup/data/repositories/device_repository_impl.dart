@@ -5,12 +5,13 @@ import '../../../../core/config/app_config.dart';
 import '../../../../core/error/failure.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/utils/result.dart';
+import '../../domain/activation_policy.dart';
 import '../../domain/entities/device_session.dart';
 import '../../domain/repositories/activation_repository.dart';
 import '../../domain/repositories/device_repository.dart';
 import '../datasources/device_local_data_source.dart';
 import '../datasources/device_remote_data_source.dart';
-import '../models/register_device_request.dart';
+import '../models/device_setup_models.dart';
 
 class DeviceRepositoryImpl implements DeviceRepository {
   DeviceRepositoryImpl(this._remote, this._local, this._config, {String? platform, this._activations})
@@ -21,31 +22,28 @@ class DeviceRepositoryImpl implements DeviceRepository {
   final AppConfig _config;
   final String _platform;
 
-  /// Receives the `activation` block of `GET /devices/me`.
+  /// Receives the `activation` block of `POST /devices/setup` and `GET /devices/me`.
   final ActivationRepository? _activations;
 
   @override
-  Future<Result<RegistrationPreview>> preview({required String storeCode, required String registrationCode}) async {
+  Future<Result<SetupPreview>> preview(String code) async {
     try {
-      final model = await _remote.preview(storeCode: storeCode, registrationCode: registrationCode);
-      return Success(model.toEntity(await _local.hardwareId()));
+      return Success((await _remote.previewSetup(ActivationCode.format(code))).toEntity());
     } on DioException catch (e) {
       return Err(mapDioError(e));
     }
   }
 
   @override
-  Future<Result<DeviceSession>> register({
-    required String storeCode,
-    required String registrationCode,
+  Future<Result<DeviceSession>> setup({
+    required String code,
     required String deviceName,
     DeviceProfile profile = const DeviceProfile(),
   }) async {
     try {
-      final model = await _remote.register(
-        RegisterDeviceRequest(
-          storeCode: storeCode,
-          registrationCode: registrationCode,
+      final res = await _remote.setup(
+        SetupDeviceRequest(
+          code: ActivationCode.format(code),
           deviceName: deviceName,
           platform: _platform,
           appVersion: _config.appVersion,
@@ -60,16 +58,26 @@ class DeviceRepositoryImpl implements DeviceRepository {
         ),
       );
       try {
-        await _local.save(model);
+        await _local.save(res.device);
       } on Object catch (e) {
         // Paired on the server but the credentials could not be stored: the code is used up.
         return Err(Failure.unexpected(message: 'Could not save the terminal credentials ($e). Ask for a new code.'));
       }
-      return Success(model.toEntity());
+      // Activated in the same call: stored now, so the sell gate needs no extra round trip.
+      if (res.activation case final a?) {
+        await _activations?.record(
+          a.toEntity().copyWith(deviceId: a.deviceId ?? res.device.deviceId),
+          serverTime: res.serverTime,
+        );
+      }
+      return Success(res.device.toEntity());
     } on DioException catch (e) {
       return Err(mapDioError(e));
     }
   }
+
+  @override
+  Future<String> hardwareId() => _local.hardwareId();
 
   @override
   Future<DeviceSession?> currentSession() async => (await _local.read())?.toEntity();

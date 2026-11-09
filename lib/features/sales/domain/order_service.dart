@@ -92,6 +92,7 @@ class OrderService {
   Future<PlacedOrder> place({required Cart cart, required SalesSettings settings, required String userId}) async {
     if (cart.isEmpty) throw const SaleException('The cart is empty.');
     if (cart.existingOrderId != null) return update(cart: cart, settings: settings, userId: userId);
+    if (!_ctx.newOrdersAllowed()) throw const SaleException(TerminalContextHolder.notActivatedMessage);
     final day =
         await _shifts.openDay() ??
         (throw const SaleException('No business day is open. A cashier must open a shift first.'));

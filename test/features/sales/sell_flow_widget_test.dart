@@ -15,6 +15,8 @@ import 'package:pos_app_ui/core/terminal/terminal_context.dart';
 import 'package:pos_app_ui/features/sync/domain/sync_scheduler.dart';
 import 'package:pos_app_ui/features/terminal/terminal_cubit.dart';
 
+import '../../helpers/activation.dart';
+
 SyncChange row(int seq, String entity, String id, Map<String, dynamic> fields) => SyncChange(
   changeId: 'c$seq',
   origin: 'SERVER',
@@ -41,6 +43,7 @@ void main() {
       secureStore: MemorySecureStore(),
       database: openTestDatabase(NativeDatabase.memory()),
     );
+    await tester.runAsync(activateTerminal);
     final store = sl<LocalStore>();
     sl<TerminalContextHolder>().ctx = TerminalContext(
       deviceId: 'd1',

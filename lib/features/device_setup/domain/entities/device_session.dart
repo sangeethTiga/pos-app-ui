@@ -1,5 +1,7 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
+import 'device_activation.dart';
+
 part 'device_session.freezed.dart';
 
 /// The store this terminal is paired with.
@@ -105,5 +107,6 @@ abstract class DeviceStatus with _$DeviceStatus {
     required bool isGateway,
     String? businessDate,
     DateTime? serverTime,
+    DeviceActivation? activation,
   }) = _DeviceStatus;
 }

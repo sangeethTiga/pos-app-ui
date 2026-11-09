@@ -1,8 +1,13 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../core/di/injection.dart';
 import '../core/terminal/terminal_context.dart';
+import '../features/device_setup/presentation/cubit/activation_cubit.dart';
+import '../features/device_setup/presentation/pages/activation_gate_page.dart';
 import '../features/device_setup/presentation/pages/device_setup_page.dart';
 import '../features/device_setup/presentation/pages/splash_page.dart';
 import '../features/home/presentation/cubit/home_cubit.dart';
@@ -22,9 +27,20 @@ import 'routes.dart';
 /// Screen-level blocs are created per route; app-wide blocs live in [App].
 GoRouter createRouter({String initialLocation = Routes.splash}) => GoRouter(
   initialLocation: initialLocation,
+  // Re-run the redirect when the activation starts or stops allowing sales (expiry, event, code).
+  refreshListenable: sl.isRegistered<ActivationCubit>() ? _SellGateListenable(sl<ActivationCubit>()) : null,
   redirect: (context, state) {
+    final loggedIn = sl<StaffSession>().value != null;
+    final loc = state.matchedLocation;
     // Selling needs a logged-in cashier.
-    if (state.matchedLocation == Routes.sell && sl<StaffSession>().value == null) return Routes.lock;
+    if (loc == Routes.sell && !loggedIn) return Routes.lock;
+    // ... and an activated terminal: otherwise the activation gate instead of the sell screen.
+    final activation = sl.isRegistered<ActivationCubit>() ? sl<ActivationCubit>().state : null;
+    if (activation == null) return null;
+    if (loc == Routes.sell && !activation.canSell) return Routes.activation;
+    if (loc == Routes.activation && activation.canSell && state.uri.queryParameters['renew'] == null) {
+      return loggedIn ? Routes.sell : Routes.lock;
+    }
     return null;
   },
   routes: [
@@ -44,6 +60,31 @@ GoRouter createRouter({String initialLocation = Routes.splash}) => GoRouter(
     GoRoute(
       path: Routes.sell,
       builder: (_, _) => BlocProvider(create: (_) => sl<SellCubit>()..load(), child: const SellPage()),
+    ),
+    GoRoute(
+      path: Routes.activation,
+      builder: (context, state) {
+        final holder = sl<TerminalContextHolder>();
+        final ctx = holder.ready ? holder.ctx : null;
+        final loggedIn = sl<StaffSession>().value != null;
+        return BlocProvider.value(
+          value: sl<ActivationCubit>(),
+          child: ActivationGatePage(
+            storeName: ctx?.storeName ?? '',
+            deviceCode: ctx?.deviceCode ?? '',
+            toLocal: ctx?.localNow,
+            loggedIn: loggedIn,
+            renew: state.uri.queryParameters['renew'] != null,
+            onOrders: () => context.push(Routes.orders),
+            onPrinters: () => context.push(Routes.printers),
+            onLogin: () => context.go(Routes.lock),
+            onLogout: () {
+              sl<StaffSession>().value = null;
+              context.go(Routes.lock);
+            },
+          ),
+        );
+      },
     ),
     GoRoute(path: Routes.printers, builder: (_, _) => const PrinterSettingsPage()),
     GoRoute(
@@ -66,3 +107,23 @@ GoRouter createRouter({String initialLocation = Routes.splash}) => GoRouter(
     ),
   ],
 );
+
+/// Notifies the router when [ActivationCubit] flips between "may sell" and "blocked".
+class _SellGateListenable extends ChangeNotifier {
+  _SellGateListenable(ActivationCubit cubit) : _canSell = cubit.state.canSell {
+    _sub = cubit.stream.listen((s) {
+      if (s.canSell == _canSell) return;
+      _canSell = s.canSell;
+      notifyListeners();
+    });
+  }
+
+  bool _canSell;
+  late final StreamSubscription<ActivationState> _sub;
+
+  @override
+  void dispose() {
+    _sub.cancel();
+    super.dispose();
+  }
+}

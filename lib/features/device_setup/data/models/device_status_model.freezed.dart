@@ -16,7 +16,8 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$DeviceStatusModel {
 
- String get deviceId; String get deviceCode; String get status; String get storeStatus; bool get canSell; bool get isGateway; String? get businessDate; DateTime? get serverTime;
+ String get deviceId; String get deviceCode; String get status; String get storeStatus; bool get canSell; bool get isGateway; String? get businessDate; DateTime? get serverTime;/// Platform activation; `can_sell` is false while it is not valid.
+ DeviceActivationModel? get activation;
 /// Create a copy of DeviceStatusModel
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -30,20 +31,20 @@ $DeviceStatusModelCopyWith<DeviceStatusModel> get copyWith => _$DeviceStatusMode
 @override
 bool operator ==(Object other) {
   final _this = this as DeviceStatusModel;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is DeviceStatusModel&&(identical(other.deviceId, _this.deviceId) || other.deviceId == _this.deviceId)&&(identical(other.deviceCode, _this.deviceCode) || other.deviceCode == _this.deviceCode)&&(identical(other.status, _this.status) || other.status == _this.status)&&(identical(other.storeStatus, _this.storeStatus) || other.storeStatus == _this.storeStatus)&&(identical(other.canSell, _this.canSell) || other.canSell == _this.canSell)&&(identical(other.isGateway, _this.isGateway) || other.isGateway == _this.isGateway)&&(identical(other.businessDate, _this.businessDate) || other.businessDate == _this.businessDate)&&(identical(other.serverTime, _this.serverTime) || other.serverTime == _this.serverTime));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is DeviceStatusModel&&(identical(other.deviceId, _this.deviceId) || other.deviceId == _this.deviceId)&&(identical(other.deviceCode, _this.deviceCode) || other.deviceCode == _this.deviceCode)&&(identical(other.status, _this.status) || other.status == _this.status)&&(identical(other.storeStatus, _this.storeStatus) || other.storeStatus == _this.storeStatus)&&(identical(other.canSell, _this.canSell) || other.canSell == _this.canSell)&&(identical(other.isGateway, _this.isGateway) || other.isGateway == _this.isGateway)&&(identical(other.businessDate, _this.businessDate) || other.businessDate == _this.businessDate)&&(identical(other.serverTime, _this.serverTime) || other.serverTime == _this.serverTime)&&(identical(other.activation, _this.activation) || other.activation == _this.activation));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
   final _this = this as DeviceStatusModel;
-  return Object.hash(runtimeType,_this.deviceId,_this.deviceCode,_this.status,_this.storeStatus,_this.canSell,_this.isGateway,_this.businessDate,_this.serverTime);
+  return Object.hash(runtimeType,_this.deviceId,_this.deviceCode,_this.status,_this.storeStatus,_this.canSell,_this.isGateway,_this.businessDate,_this.serverTime,_this.activation);
 }
 
 @override
 String toString() {
   final _this = this as DeviceStatusModel;
-  return 'DeviceStatusModel(deviceId: ${_this.deviceId}, deviceCode: ${_this.deviceCode}, status: ${_this.status}, storeStatus: ${_this.storeStatus}, canSell: ${_this.canSell}, isGateway: ${_this.isGateway}, businessDate: ${_this.businessDate}, serverTime: ${_this.serverTime})';
+  return 'DeviceStatusModel(deviceId: ${_this.deviceId}, deviceCode: ${_this.deviceCode}, status: ${_this.status}, storeStatus: ${_this.storeStatus}, canSell: ${_this.canSell}, isGateway: ${_this.isGateway}, businessDate: ${_this.businessDate}, serverTime: ${_this.serverTime}, activation: ${_this.activation})';
 }
 
 
@@ -54,11 +55,11 @@ abstract mixin class $DeviceStatusModelCopyWith<$Res>  {
   factory $DeviceStatusModelCopyWith(DeviceStatusModel value, $Res Function(DeviceStatusModel) _then) = _$DeviceStatusModelCopyWithImpl;
 @useResult
 $Res call({
- String deviceId, String deviceCode, String status, String storeStatus, bool canSell, bool isGateway, String? businessDate, DateTime? serverTime
+ String deviceId, String deviceCode, String status, String storeStatus, bool canSell, bool isGateway, String? businessDate, DateTime? serverTime, DeviceActivationModel? activation
 });
 
 
-
+$DeviceActivationModelCopyWith<$Res>? get activation;
 
 }
 /// @nodoc
@@ -71,7 +72,7 @@ class _$DeviceStatusModelCopyWithImpl<$Res>
 
 /// Create a copy of DeviceStatusModel
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? deviceId = null,Object? deviceCode = null,Object? status = null,Object? storeStatus = null,Object? canSell = null,Object? isGateway = null,Object? businessDate = freezed,Object? serverTime = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? deviceId = null,Object? deviceCode = null,Object? status = null,Object? storeStatus = null,Object? canSell = null,Object? isGateway = null,Object? businessDate = freezed,Object? serverTime = freezed,Object? activation = freezed,}) {
   return _then(DeviceStatusModel(
 deviceId: null == deviceId ? _self.deviceId : deviceId // ignore: cast_nullable_to_non_nullable
 as String,deviceCode: null == deviceCode ? _self.deviceCode : deviceCode // ignore: cast_nullable_to_non_nullable
@@ -81,10 +82,23 @@ as String,canSell: null == canSell ? _self.canSell : canSell // ignore: cast_nul
 as bool,isGateway: null == isGateway ? _self.isGateway : isGateway // ignore: cast_nullable_to_non_nullable
 as bool,businessDate: freezed == businessDate ? _self.businessDate : businessDate // ignore: cast_nullable_to_non_nullable
 as String?,serverTime: freezed == serverTime ? _self.serverTime : serverTime // ignore: cast_nullable_to_non_nullable
-as DateTime?,
+as DateTime?,activation: freezed == activation ? _self.activation : activation // ignore: cast_nullable_to_non_nullable
+as DeviceActivationModel?,
   ));
 }
+/// Create a copy of DeviceStatusModel
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$DeviceActivationModelCopyWith<$Res>? get activation {
+    if (_self.activation == null) {
+    return null;
+  }
 
+  return $DeviceActivationModelCopyWith<$Res>(_self.activation!, (value) {
+    return _then(_self.copyWith(activation: value));
+  });
+}
 }
 
 
@@ -166,10 +180,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String deviceId,  String deviceCode,  String status,  String storeStatus,  bool canSell,  bool isGateway,  String? businessDate,  DateTime? serverTime)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String deviceId,  String deviceCode,  String status,  String storeStatus,  bool canSell,  bool isGateway,  String? businessDate,  DateTime? serverTime,  DeviceActivationModel? activation)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _DeviceStatusModel() when $default != null:
-return $default(_that.deviceId,_that.deviceCode,_that.status,_that.storeStatus,_that.canSell,_that.isGateway,_that.businessDate,_that.serverTime);case _:
+return $default(_that.deviceId,_that.deviceCode,_that.status,_that.storeStatus,_that.canSell,_that.isGateway,_that.businessDate,_that.serverTime,_that.activation);case _:
   return orElse();
 
 }
@@ -187,10 +201,10 @@ return $default(_that.deviceId,_that.deviceCode,_that.status,_that.storeStatus,_
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String deviceId,  String deviceCode,  String status,  String storeStatus,  bool canSell,  bool isGateway,  String? businessDate,  DateTime? serverTime)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String deviceId,  String deviceCode,  String status,  String storeStatus,  bool canSell,  bool isGateway,  String? businessDate,  DateTime? serverTime,  DeviceActivationModel? activation)  $default,) {final _that = this;
 switch (_that) {
 case _DeviceStatusModel():
-return $default(_that.deviceId,_that.deviceCode,_that.status,_that.storeStatus,_that.canSell,_that.isGateway,_that.businessDate,_that.serverTime);case _:
+return $default(_that.deviceId,_that.deviceCode,_that.status,_that.storeStatus,_that.canSell,_that.isGateway,_that.businessDate,_that.serverTime,_that.activation);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -207,10 +221,10 @@ return $default(_that.deviceId,_that.deviceCode,_that.status,_that.storeStatus,_
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String deviceId,  String deviceCode,  String status,  String storeStatus,  bool canSell,  bool isGateway,  String? businessDate,  DateTime? serverTime)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String deviceId,  String deviceCode,  String status,  String storeStatus,  bool canSell,  bool isGateway,  String? businessDate,  DateTime? serverTime,  DeviceActivationModel? activation)?  $default,) {final _that = this;
 switch (_that) {
 case _DeviceStatusModel() when $default != null:
-return $default(_that.deviceId,_that.deviceCode,_that.status,_that.storeStatus,_that.canSell,_that.isGateway,_that.businessDate,_that.serverTime);case _:
+return $default(_that.deviceId,_that.deviceCode,_that.status,_that.storeStatus,_that.canSell,_that.isGateway,_that.businessDate,_that.serverTime,_that.activation);case _:
   return null;
 
 }
@@ -222,7 +236,7 @@ return $default(_that.deviceId,_that.deviceCode,_that.status,_that.storeStatus,_
 @JsonSerializable()
 
 class _DeviceStatusModel extends DeviceStatusModel {
-  const _DeviceStatusModel({required this.deviceId, required this.deviceCode, required this.status, required this.storeStatus, required this.canSell, required this.isGateway, this.businessDate, this.serverTime}): super._();
+  const _DeviceStatusModel({required this.deviceId, required this.deviceCode, required this.status, required this.storeStatus, required this.canSell, required this.isGateway, this.businessDate, this.serverTime, this.activation}): super._();
   factory _DeviceStatusModel.fromJson(Map<String, dynamic> json) => _$DeviceStatusModelFromJson(json);
 
 @override final  String deviceId;
@@ -233,6 +247,8 @@ class _DeviceStatusModel extends DeviceStatusModel {
 @override final  bool isGateway;
 @override final  String? businessDate;
 @override final  DateTime? serverTime;
+/// Platform activation; `can_sell` is false while it is not valid.
+@override final  DeviceActivationModel? activation;
 
 /// Create a copy of DeviceStatusModel
 /// with the given fields replaced by the non-null parameter values.
@@ -247,18 +263,18 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _DeviceStatusModel&&(identical(other.deviceId, deviceId) || other.deviceId == deviceId)&&(identical(other.deviceCode, deviceCode) || other.deviceCode == deviceCode)&&(identical(other.status, status) || other.status == status)&&(identical(other.storeStatus, storeStatus) || other.storeStatus == storeStatus)&&(identical(other.canSell, canSell) || other.canSell == canSell)&&(identical(other.isGateway, isGateway) || other.isGateway == isGateway)&&(identical(other.businessDate, businessDate) || other.businessDate == businessDate)&&(identical(other.serverTime, serverTime) || other.serverTime == serverTime));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _DeviceStatusModel&&(identical(other.deviceId, deviceId) || other.deviceId == deviceId)&&(identical(other.deviceCode, deviceCode) || other.deviceCode == deviceCode)&&(identical(other.status, status) || other.status == status)&&(identical(other.storeStatus, storeStatus) || other.storeStatus == storeStatus)&&(identical(other.canSell, canSell) || other.canSell == canSell)&&(identical(other.isGateway, isGateway) || other.isGateway == isGateway)&&(identical(other.businessDate, businessDate) || other.businessDate == businessDate)&&(identical(other.serverTime, serverTime) || other.serverTime == serverTime)&&(identical(other.activation, activation) || other.activation == activation));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
-    return Object.hash(runtimeType,deviceId,deviceCode,status,storeStatus,canSell,isGateway,businessDate,serverTime);
+    return Object.hash(runtimeType,deviceId,deviceCode,status,storeStatus,canSell,isGateway,businessDate,serverTime,activation);
 }
 
 @override
 String toString() {
-    return 'DeviceStatusModel(deviceId: $deviceId, deviceCode: $deviceCode, status: $status, storeStatus: $storeStatus, canSell: $canSell, isGateway: $isGateway, businessDate: $businessDate, serverTime: $serverTime)';
+    return 'DeviceStatusModel(deviceId: $deviceId, deviceCode: $deviceCode, status: $status, storeStatus: $storeStatus, canSell: $canSell, isGateway: $isGateway, businessDate: $businessDate, serverTime: $serverTime, activation: $activation)';
 }
 
 
@@ -269,11 +285,11 @@ abstract mixin class _$DeviceStatusModelCopyWith<$Res> implements $DeviceStatusM
   factory _$DeviceStatusModelCopyWith(_DeviceStatusModel value, $Res Function(_DeviceStatusModel) _then) = __$DeviceStatusModelCopyWithImpl;
 @override @useResult
 $Res call({
- String deviceId, String deviceCode, String status, String storeStatus, bool canSell, bool isGateway, String? businessDate, DateTime? serverTime
+ String deviceId, String deviceCode, String status, String storeStatus, bool canSell, bool isGateway, String? businessDate, DateTime? serverTime, DeviceActivationModel? activation
 });
 
 
-
+@override $DeviceActivationModelCopyWith<$Res>? get activation;
 
 }
 /// @nodoc
@@ -286,7 +302,7 @@ class __$DeviceStatusModelCopyWithImpl<$Res>
 
 /// Create a copy of DeviceStatusModel
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? deviceId = null,Object? deviceCode = null,Object? status = null,Object? storeStatus = null,Object? canSell = null,Object? isGateway = null,Object? businessDate = freezed,Object? serverTime = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? deviceId = null,Object? deviceCode = null,Object? status = null,Object? storeStatus = null,Object? canSell = null,Object? isGateway = null,Object? businessDate = freezed,Object? serverTime = freezed,Object? activation = freezed,}) {
   return _then(_DeviceStatusModel(
 deviceId: null == deviceId ? _self.deviceId : deviceId // ignore: cast_nullable_to_non_nullable
 as String,deviceCode: null == deviceCode ? _self.deviceCode : deviceCode // ignore: cast_nullable_to_non_nullable
@@ -296,11 +312,24 @@ as String,canSell: null == canSell ? _self.canSell : canSell // ignore: cast_nul
 as bool,isGateway: null == isGateway ? _self.isGateway : isGateway // ignore: cast_nullable_to_non_nullable
 as bool,businessDate: freezed == businessDate ? _self.businessDate : businessDate // ignore: cast_nullable_to_non_nullable
 as String?,serverTime: freezed == serverTime ? _self.serverTime : serverTime // ignore: cast_nullable_to_non_nullable
-as DateTime?,
+as DateTime?,activation: freezed == activation ? _self.activation : activation // ignore: cast_nullable_to_non_nullable
+as DeviceActivationModel?,
   ));
 }
 
+/// Create a copy of DeviceStatusModel
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$DeviceActivationModelCopyWith<$Res>? get activation {
+    if (_self.activation == null) {
+    return null;
+  }
 
+  return $DeviceActivationModelCopyWith<$Res>(_self.activation!, (value) {
+    return _then(_self.copyWith(activation: value));
+  });
+}
 }
 
 // dart format on

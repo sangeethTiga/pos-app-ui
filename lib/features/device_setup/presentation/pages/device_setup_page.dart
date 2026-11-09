@@ -12,6 +12,7 @@ import '../../../../core/responsive/responsive.dart';
 import '../../../terminal/terminal_cubit.dart';
 import '../../domain/entities/device_session.dart';
 import '../bloc/device_setup_bloc.dart';
+import '../cubit/activation_cubit.dart';
 
 /// Register this terminal. Step 1: store code + one-time registration code from the admin panel.
 /// Step 2 ("Settings"): store, device name, device id, kiosk, cashier / captain, delivery manager flags.
@@ -68,14 +69,20 @@ class _DeviceSetupPageState extends State<DeviceSetupPage> {
     );
   }
 
+  /// Registered: start the terminal, then the activation gate unless already activated.
+  Future<void> _start(BuildContext context, DeviceSession session) async {
+    context.read<TerminalCubit>().start(session);
+    final activation = context.read<ActivationCubit>();
+    await activation.start(session.deviceId);
+    if (!context.mounted) return;
+    context.go(activation.state.canSell ? Routes.lock : Routes.activation);
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocConsumer<DeviceSetupBloc, DeviceSetupState>(
       listener: (context, state) {
-        if (state is DeviceSetupPaired) {
-          context.read<TerminalCubit>().start(state.session);
-          context.go(Routes.lock);
-        }
+        if (state is DeviceSetupPaired) _start(context, state.session);
         if (state is DeviceSetupReady && state.failure == null && !state.submitting) {
           // New store: forget a kiosk picked for another store.
           if (!state.preview.kiosks.any((k) => k.id == _kioskId)) setState(() => _kioskId = null);

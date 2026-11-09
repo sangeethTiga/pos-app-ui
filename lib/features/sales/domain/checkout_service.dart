@@ -120,6 +120,7 @@ class CheckoutService {
   }) async {
     if (cart.isEmpty) throw const SaleException('The cart is empty.');
     if (cart.existingOrderId != null) throw const SaleException('Settle the running table order from Orders.');
+    if (!_ctx.newOrdersAllowed()) throw const SaleException(TerminalContextHolder.notActivatedMessage);
     final shift = await _shifts.openShift() ?? (throw const SaleException('Open a shift before selling.'));
     final dayId = shift.data['business_day_id'] as String;
     final day = await _store.find('business_day', dayId);

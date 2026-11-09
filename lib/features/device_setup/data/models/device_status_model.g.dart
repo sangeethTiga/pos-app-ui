@@ -15,6 +15,9 @@ _DeviceStatusModel _$DeviceStatusModelFromJson(Map<String, dynamic> json) => _De
   isGateway: json['is_gateway'] as bool,
   businessDate: json['business_date'] as String?,
   serverTime: json['server_time'] == null ? null : DateTime.parse(json['server_time'] as String),
+  activation: json['activation'] == null
+      ? null
+      : DeviceActivationModel.fromJson(json['activation'] as Map<String, dynamic>),
 );
 
 Map<String, dynamic> _$DeviceStatusModelToJson(_DeviceStatusModel instance) => <String, dynamic>{
@@ -26,4 +29,5 @@ Map<String, dynamic> _$DeviceStatusModelToJson(_DeviceStatusModel instance) => <
   'is_gateway': instance.isGateway,
   'business_date': ?instance.businessDate,
   'server_time': ?instance.serverTime?.toIso8601String(),
+  'activation': ?instance.activation?.toJson(),
 };

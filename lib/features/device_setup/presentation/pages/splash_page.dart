@@ -6,6 +6,7 @@ import '../../../../app/routes.dart';
 import '../../../terminal/terminal_cubit.dart';
 import '../../domain/entities/device_session.dart';
 import '../bloc/device_setup_bloc.dart';
+import '../cubit/activation_cubit.dart';
 
 /// Decides between pairing and the home screen.
 class SplashPage extends StatefulWidget {
@@ -34,8 +35,12 @@ class _SplashPageState extends State<SplashPage> {
     );
   }
 
-  void _start(BuildContext context, DeviceSession session) {
+  Future<void> _start(BuildContext context, DeviceSession session) async {
     context.read<TerminalCubit>().start(session);
-    context.go(Routes.lock);
+    final activation = context.read<ActivationCubit>();
+    await activation.start(session.deviceId); // stored state first: works offline
+    if (!context.mounted) return;
+    // Not activated: the activation gate first (staff login stays one tap away).
+    context.go(activation.state.canSell ? Routes.lock : Routes.activation);
   }
 }

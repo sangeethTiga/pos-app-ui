@@ -4,12 +4,15 @@ import 'package:get_it/get_it.dart';
 import '../../features/catalogue/data/catalogue_repository.dart';
 import '../../features/device_setup/data/datasources/device_local_data_source.dart';
 import '../../features/device_setup/data/datasources/device_remote_data_source.dart';
+import '../../features/device_setup/data/repositories/activation_repository_impl.dart';
 import '../../features/device_setup/data/repositories/device_repository_impl.dart';
+import '../../features/device_setup/domain/repositories/activation_repository.dart';
 import '../../features/device_setup/domain/repositories/device_repository.dart';
 import '../../features/device_setup/domain/usecases/get_current_session.dart';
 import '../../features/device_setup/domain/usecases/preview_registration.dart';
 import '../../features/device_setup/domain/usecases/register_device.dart';
 import '../../features/device_setup/presentation/bloc/device_setup_bloc.dart';
+import '../../features/device_setup/presentation/cubit/activation_cubit.dart';
 import '../../features/home/presentation/cubit/home_cubit.dart';
 import '../../features/orders/presentation/order_detail_cubit.dart';
 import '../../features/orders/presentation/orders_cubit.dart';
@@ -84,8 +87,21 @@ Future<void> configureDependencies({
         ),
     )
     ..registerLazySingleton<DeviceCredentialsProvider>(() => sl<DeviceLocalDataSource>())
+    ..registerLazySingleton<ActivationRepository>(
+      () => ActivationRepositoryImpl(
+        sl<DeviceRemoteDataSource>(),
+        sl<DeviceLocalDataSource>(),
+        sl<AppConfig>(),
+        signer: sl<RequestSigner>(),
+      ),
+    )
     ..registerLazySingleton<DeviceRepository>(
-      () => DeviceRepositoryImpl(sl<DeviceRemoteDataSource>(), sl<DeviceLocalDataSource>(), sl<AppConfig>()),
+      () => DeviceRepositoryImpl(
+        sl<DeviceRemoteDataSource>(),
+        sl<DeviceLocalDataSource>(),
+        sl<AppConfig>(),
+        activations: sl<ActivationRepository>(),
+      ),
     )
     ..registerFactory(() => RegisterDevice(sl<DeviceRepository>()))
     ..registerFactory(() => GetCurrentSession(sl<DeviceRepository>()))
@@ -99,11 +115,20 @@ Future<void> configureDependencies({
   sl
     ..registerLazySingleton<AppDatabase>(() => database ?? openAppDatabase())
     ..registerLazySingleton(() => LocalStore(sl<AppDatabase>()))
-    ..registerLazySingleton(TerminalContextHolder.new)
+    // New orders follow the platform activation (enforced locally, also offline).
+    ..registerLazySingleton(() => TerminalContextHolder()..newOrdersAllowed = () => sl<ActivationCubit>().state.canSell)
     ..registerLazySingleton<SyncApi>(() => DioSyncApi(sl<Dio>()))
     ..registerLazySingleton(() => SyncEngine(sl<SyncApi>(), sl<LocalStore>()))
     ..registerLazySingleton(() => RealtimeClient(sl<SyncApi>()))
     ..registerLazySingleton(() => SyncScheduler(sl<SyncEngine>(), sl<LocalStore>(), sl<RealtimeClient>()))
+    // App-wide: the sell gate, the expiry banner and the activation screen share one state.
+    ..registerLazySingleton(
+      () => ActivationCubit(
+        sl<ActivationRepository>(),
+        realtime: sl<RealtimeClient>().messages,
+        syncReports: sl<SyncScheduler>().reports,
+      ),
+    )
     ..registerLazySingleton(
       () => TerminalCubit(sl<LocalStore>(), sl<TerminalContextHolder>(), sl<SyncScheduler>(), sl<AppConfig>()),
     )

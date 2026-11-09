@@ -84,4 +84,12 @@ class TerminalContextHolder {
   TerminalContext get ctx => _ctx ?? (throw StateError('Terminal session not started'));
   bool get ready => _ctx != null;
   set ctx(TerminalContext value) => _ctx = value;
+
+  /// May this terminal start a new order now? Wired by DI to the platform activation (orders made while
+  /// not activated are rejected by the server). Editing, paying and syncing existing orders is not gated.
+  bool Function() newOrdersAllowed = _always;
+
+  static bool _always() => true;
+
+  static const notActivatedMessage = 'This terminal is not activated. New orders are blocked until it is activated.';
 }

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../core/di/injection.dart';
 import '../core/responsive/responsive.dart';
 import '../features/device_setup/presentation/bloc/device_setup_bloc.dart';
+import '../features/device_setup/presentation/cubit/activation_cubit.dart';
 import '../features/terminal/terminal_cubit.dart';
 import 'router.dart';
 import 'theme.dart';
@@ -32,6 +33,7 @@ class _AppState extends State<App> {
       providers: [
         BlocProvider(create: (_) => sl<DeviceSetupBloc>()),
         BlocProvider.value(value: sl<TerminalCubit>()),
+        BlocProvider.value(value: sl<ActivationCubit>()),
       ],
       child: MaterialApp.router(
         title: 'POS',

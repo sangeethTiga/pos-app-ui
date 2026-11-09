@@ -4,6 +4,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../../../core/network/device_credentials_provider.dart';
 import '../../../../core/storage/secure_store.dart';
+import '../models/device_activation_model.dart';
 import '../models/device_registration_model.dart';
 
 /// Device credentials in secure storage (never SQLite, never logs).
@@ -15,6 +16,7 @@ class DeviceLocalDataSource implements DeviceCredentialsProvider {
 
   static const _key = 'device_session_v1';
   static const _hardwareKey = 'terminal_hardware_id';
+  static const _activationKey = 'device_activation_v1';
 
   final SecureStore _store;
 
@@ -31,7 +33,25 @@ class DeviceLocalDataSource implements DeviceCredentialsProvider {
 
   Future<void> save(DeviceRegistrationModel model) => _store.write(_key, jsonEncode(model.toJson()));
 
-  Future<void> clear() => _store.delete(_key);
+  Future<void> clear() async {
+    await _store.delete(_key);
+    await _store.delete(_activationKey);
+  }
+
+  /// Last known platform activation (enforced offline). Null when never received or unreadable.
+  Future<ActivationSnapshotModel?> readActivation() async {
+    final raw = await _store.read(_activationKey);
+    if (raw == null) return null;
+    try {
+      return ActivationSnapshotModel.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+    } on Object {
+      await _store.delete(_activationKey);
+      return null;
+    }
+  }
+
+  Future<void> saveActivation(ActivationSnapshotModel model) =>
+      _store.write(_activationKey, jsonEncode(model.toJson()));
 
   /// This terminal's own id: created once, kept across re-pairing (shown on the registration screen).
   Future<String> hardwareId() async {

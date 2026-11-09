@@ -1,11 +1,12 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 import '../../domain/entities/device_session.dart';
+import 'device_activation_model.dart';
 
 part 'device_status_model.freezed.dart';
 part 'device_status_model.g.dart';
 
-/// Body of `GET /devices/me`.
+/// Body of `GET /devices/me` and `POST /devices/heartbeat`.
 @freezed
 abstract class DeviceStatusModel with _$DeviceStatusModel {
   const DeviceStatusModel._();
@@ -19,6 +20,9 @@ abstract class DeviceStatusModel with _$DeviceStatusModel {
     required bool isGateway,
     String? businessDate,
     DateTime? serverTime,
+
+    /// Platform activation; `can_sell` is false while it is not valid.
+    DeviceActivationModel? activation,
   }) = _DeviceStatusModel;
 
   factory DeviceStatusModel.fromJson(Map<String, dynamic> json) => _$DeviceStatusModelFromJson(json);
@@ -31,5 +35,6 @@ abstract class DeviceStatusModel with _$DeviceStatusModel {
     isGateway: isGateway,
     businessDate: businessDate,
     serverTime: serverTime,
+    activation: activation?.toEntity(),
   );
 }

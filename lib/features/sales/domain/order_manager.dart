@@ -336,6 +336,7 @@ class OrderManager {
     final moving = cart.lines.where((l) => lineIds.contains(l.key)).toList();
     if (moving.isEmpty) throw const SaleException('Select items for the new bill.');
     if (moving.length == cart.lines.length) throw const SaleException('Leave at least one item on this bill.');
+    if (!_ctx.newOrdersAllowed()) throw const SaleException(TerminalContextHolder.notActivatedMessage);
     final o = (await _store.find('orders', orderId))!.data;
     final ctx = _ctx.ctx;
     final orderNo = await _checkout.nextNumber(

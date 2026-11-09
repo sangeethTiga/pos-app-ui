@@ -21,6 +21,7 @@ import 'package:pos_app_ui/features/sync/domain/sync_scheduler.dart';
 import 'package:pos_app_ui/features/terminal/terminal_cubit.dart';
 
 import '../features/printing/printing_test.dart' show FakeTransport;
+import '../helpers/activation.dart';
 
 /// Screen sizes every screen is checked at (logical px, device pixel ratio 1).
 const posSizes = <String, Size>{
@@ -78,6 +79,7 @@ Future<LocalStore> setUpPos(WidgetTester tester, {int orders = 0, bool captainDe
     database: openTestDatabase(NativeDatabase.memory()),
     printerTransport: FakeTransport(),
   );
+  await tester.runAsync(activateTerminal);
   final store = sl<LocalStore>();
   sl<TerminalContextHolder>().ctx = TerminalContext(
     deviceId: 'd1',

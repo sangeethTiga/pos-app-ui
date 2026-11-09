@@ -6,19 +6,23 @@ import '../../../../core/error/failure.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/utils/result.dart';
 import '../../domain/entities/device_session.dart';
+import '../../domain/repositories/activation_repository.dart';
 import '../../domain/repositories/device_repository.dart';
 import '../datasources/device_local_data_source.dart';
 import '../datasources/device_remote_data_source.dart';
 import '../models/register_device_request.dart';
 
 class DeviceRepositoryImpl implements DeviceRepository {
-  DeviceRepositoryImpl(this._remote, this._local, this._config, {String? platform})
+  DeviceRepositoryImpl(this._remote, this._local, this._config, {String? platform, this._activations})
     : _platform = platform ?? (defaultTargetPlatform == TargetPlatform.android ? 'android' : 'windows');
 
   final DeviceRemoteDataSource _remote;
   final DeviceLocalDataSource _local;
   final AppConfig _config;
   final String _platform;
+
+  /// Receives the `activation` block of `GET /devices/me`.
+  final ActivationRepository? _activations;
 
   @override
   Future<Result<RegistrationPreview>> preview({required String storeCode, required String registrationCode}) async {
@@ -73,7 +77,9 @@ class DeviceRepositoryImpl implements DeviceRepository {
   @override
   Future<Result<DeviceStatus>> status() async {
     try {
-      return Success((await _remote.me()).toEntity());
+      final status = (await _remote.me()).toEntity();
+      if (status.activation case final a?) await _activations?.record(a, serverTime: status.serverTime);
+      return Success(status);
     } on DioException catch (e) {
       return Err(mapDioError(e));
     }

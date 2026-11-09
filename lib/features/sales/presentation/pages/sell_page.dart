@@ -10,6 +10,7 @@ import '../../../../core/di/injection.dart';
 import '../../../../core/responsive/responsive.dart';
 import '../../../../core/terminal/terminal_context.dart';
 import '../../../catalogue/data/catalogue_repository.dart';
+import '../../../device_setup/presentation/widgets/activation_expiry_banner.dart';
 import '../../../printing/data/print_center.dart';
 import '../../../printing/data/printer_service.dart';
 import '../../../shift/domain/shift_service.dart';
@@ -101,16 +102,24 @@ class _SellPageState extends State<SellPage> {
           backgroundColor: HomeColors.page,
           drawer: _HomeDrawer(onShiftChanged: cubit.refreshShift),
           body: SafeArea(
-            child: s.loading
-                ? const Center(child: CircularProgressIndicator())
-                : !s.shiftOpen && !captainDevice
-                ? Column(
-                    children: [
-                      _topBar(s, cubit, kotPrinterMissing: false),
-                      Expanded(child: _OpenShift(onOpened: cubit.refreshShift)),
-                    ],
-                  )
-                : ResponsiveBuilder(builder: (context, r) => _layout(context, r, s, cubit)),
+            child: Column(
+              children: [
+                // Non-blocking: activation ends within 7 days.
+                const ActivationExpiryBanner(),
+                Expanded(
+                  child: s.loading
+                      ? const Center(child: CircularProgressIndicator())
+                      : !s.shiftOpen && !captainDevice
+                      ? Column(
+                          children: [
+                            _topBar(s, cubit, kotPrinterMissing: false),
+                            Expanded(child: _OpenShift(onOpened: cubit.refreshShift)),
+                          ],
+                        )
+                      : ResponsiveBuilder(builder: (context, r) => _layout(context, r, s, cubit)),
+                ),
+              ],
+            ),
           ),
         );
       },

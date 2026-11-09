@@ -7,6 +7,9 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/routes.dart';
 import '../../../../core/error/failure.dart';
 import '../../../../core/responsive/responsive.dart';
+import '../../../device_setup/domain/activation_policy.dart';
+import '../../../device_setup/domain/entities/device_activation.dart';
+import '../../../device_setup/presentation/widgets/activation_text.dart';
 import '../cubit/home_cubit.dart';
 
 class HomePage extends StatelessWidget {
@@ -60,9 +63,28 @@ class HomePage extends StatelessWidget {
                       _Row('Server', 'connected (signed request OK)'),
                       _Row('Device status', st.status),
                       _Row('Can sell', st.canSell ? 'yes' : 'no (store ${st.storeStatus})'),
+                      if (st.activation case final a?)
+                        _Row(
+                          'Activation',
+                          activationHeadline(
+                            ActivationPolicy.evaluate(
+                              ActivationSnapshot(activation: a, receivedAt: DateTime.now().toUtc()),
+                              DateTime.now(),
+                            ),
+                          ),
+                        ),
                       _Row('Gateway', st.isGateway ? 'this terminal' : 'no'),
                       if (st.businessDate != null) _Row('Business date', st.businessDate!),
                     ],
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: OutlinedButton.icon(
+                        key: const Key('enterActivationCode'),
+                        onPressed: () => context.push(Routes.activationRenew),
+                        icon: const Icon(Icons.vpn_key_outlined),
+                        label: const Text('Enter activation code'),
+                      ),
+                    ),
                     if (state.failure case final f?)
                       Text(
                         f.userMessage,

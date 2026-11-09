@@ -1,10 +1,12 @@
 import 'dart:convert';
+import 'dart:io' show HttpDate;
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 
 import '../../../../core/network/request_signer.dart';
 
+import '../models/device_activation_model.dart';
 import '../models/device_registration_model.dart';
 import '../models/device_status_model.dart';
 import '../models/register_device_request.dart';
@@ -68,5 +70,33 @@ class DeviceRemoteDataSource {
   Future<DeviceStatusModel> me() async {
     final res = await _dio.get<Map<String, dynamic>>('/devices/me');
     return DeviceStatusModel.fromJson(res.data!);
+  }
+
+  /// `POST /devices/heartbeat` (every terminal): same body as `GET /devices/me`.
+  Future<DeviceStatusModel> heartbeat({String? appVersion}) async {
+    final res = await _dio.post<Map<String, dynamic>>('/devices/heartbeat', data: {'app_version': ?appVersion});
+    return DeviceStatusModel.fromJson(res.data!);
+  }
+
+  /// `GET /devices/activation`. [serverTime] comes from the HTTP `Date` header (the body has none).
+  Future<({DeviceActivationModel activation, DateTime? serverTime})> activation() async {
+    final res = await _dio.get<Map<String, dynamic>>('/devices/activation');
+    return (activation: DeviceActivationModel.fromJson(res.data!), serverTime: _dateHeader(res));
+  }
+
+  /// `POST /devices/activate`. 422 INVALID_ACTIVATION_CODE / 429 throttled come back as [DioException].
+  Future<({ActivateDeviceResponseModel result, DateTime? serverTime})> activate(String code) async {
+    final res = await _dio.post<Map<String, dynamic>>('/devices/activate', data: {'code': code});
+    return (result: ActivateDeviceResponseModel.fromJson(res.data!), serverTime: _dateHeader(res));
+  }
+
+  static DateTime? _dateHeader(Response<dynamic> res) {
+    final v = res.headers.value('date');
+    if (v == null) return null;
+    try {
+      return HttpDate.parse(v);
+    } on Object {
+      return null;
+    }
   }
 }

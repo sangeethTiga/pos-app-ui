@@ -8,7 +8,15 @@ import '../data/sync_api.dart';
 enum SyncResult { synced, waitingForSchedule, notGateway, failed }
 
 class SyncReport {
-  const SyncReport(this.result, {this.mode, this.pushed = 0, this.pulled = 0, this.rejected = 0, this.message});
+  const SyncReport(
+    this.result, {
+    this.mode,
+    this.pushed = 0,
+    this.pulled = 0,
+    this.rejected = 0,
+    this.message,
+    this.rejectedCodes = const {},
+  });
 
   final SyncResult result;
   final String? mode;
@@ -16,6 +24,12 @@ class SyncReport {
   final int pulled;
   final int rejected;
   final String? message;
+
+  /// Codes of the transactions the server rejected in this sync (e.g. DEVICE_NOT_ACTIVATED).
+  final Set<String> rejectedCodes;
+
+  /// The server refused something because a terminal is not activated.
+  bool get deviceNotActivated => rejectedCodes.contains('DEVICE_NOT_ACTIVATED') || message == 'DEVICE_NOT_ACTIVATED';
 
   @override
   String toString() =>
@@ -47,6 +61,7 @@ class SyncEngine {
     String? mode;
     String? runId;
     var pushed = 0, pulled = 0, rejected = 0;
+    final rejectedCodes = <String>{};
     try {
       final config = await _api.config();
       mode = config['mode'] as String?;
@@ -88,6 +103,7 @@ class SyncEngine {
           final m = Map<String, dynamic>.from(r as Map);
           final txId = (m['tx_id'] ?? m['txn_id']) as String?;
           if (txId != null) await _store.markRejected(txId, '${m['code']}');
+          if (m['code'] is String) rejectedCodes.add(m['code'] as String);
           rejected++;
         }
         pushed += (res['applied'] as int? ?? 0);
@@ -111,7 +127,14 @@ class SyncEngine {
 
       if (runId != null) await _complete(runId, rejected > 0 ? 'PARTIAL' : 'SUCCESS');
       await _store.setValue('last_sync_at', DateTime.now().toUtc().toIso8601String());
-      return SyncReport(SyncResult.synced, mode: mode, pushed: pushed, pulled: pulled, rejected: rejected);
+      return SyncReport(
+        SyncResult.synced,
+        mode: mode,
+        pushed: pushed,
+        pulled: pulled,
+        rejected: rejected,
+        rejectedCodes: rejectedCodes,
+      );
     } on DioException catch (e) {
       final data = e.response?.data;
       final code = data is Map && data['error'] is Map ? (data['error'] as Map)['code'] as String? : null;
@@ -123,7 +146,14 @@ class SyncEngine {
           // the server marks silent runs ABANDONED
         }
       }
-      return SyncReport(SyncResult.failed, mode: mode, pushed: pushed, pulled: pulled, message: code ?? e.message);
+      return SyncReport(
+        SyncResult.failed,
+        mode: mode,
+        pushed: pushed,
+        pulled: pulled,
+        message: code ?? e.message,
+        rejectedCodes: rejectedCodes,
+      );
     }
   }
 

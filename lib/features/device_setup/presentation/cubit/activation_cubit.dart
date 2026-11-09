@@ -69,9 +69,9 @@ class ActivationCubit extends Cubit<ActivationState> {
   /// Starts watching the activation of [deviceId] (after pairing / on app start). Reads the stored state
   /// first so the gate decision is ready at once, then asks the server.
   Future<void> start(String deviceId) async {
-    if (_deviceId == deviceId) return;
+    await load(); // also after an unpair + re-pair: the stored state was cleared
+    if (_deviceId == deviceId && _tick != null) return unawaited(refresh());
     _deviceId = deviceId;
-    await load();
     _tick?.cancel();
     _heartbeat?.cancel();
     _tick = Timer.periodic(tick, (_) => reevaluate());

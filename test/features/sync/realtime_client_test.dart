@@ -66,4 +66,57 @@ void main() {
     await client.stop();
     await server.close(force: true);
   });
+
+  test('also joins the devices channel and delivers event payloads (device.activation)', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    final subscribed = <String>[];
+    server.listen((req) async {
+      final ws = await WebSocketTransformer.upgrade(req);
+      ws.add(
+        jsonEncode({
+          'event': 'pusher:connection_established',
+          'data': jsonEncode({'socket_id': '1.2', 'activity_timeout': 30}),
+        }),
+      );
+      ws.listen((raw) {
+        final m = jsonDecode(raw as String) as Map<String, dynamic>;
+        if (m['event'] != 'pusher:subscribe') return;
+        subscribed.add((m['data'] as Map)['channel'] as String);
+        if (subscribed.length == 2) {
+          ws.add(
+            jsonEncode({
+              'event': 'device.activation',
+              'channel': 'private-tenant.t1.store.s1.devices',
+              'data': jsonEncode({
+                'event_id': 'e1',
+                'device_id': 'd1',
+                'activation': {'status': 'ACTIVE', 'valid': true},
+              }),
+            }),
+          );
+        }
+      });
+    });
+
+    final api = _Api();
+    final client = RealtimeClient(api);
+    final first = client.messages.first;
+    client.start({
+      'app_key': 'appkey',
+      'host': '127.0.0.1',
+      'port': server.port,
+      'scheme': 'http',
+      'channels': {'sync': 'private-tenant.t1.store.s1.sync', 'devices': 'private-tenant.t1.store.s1.devices'},
+    }, origin: 'http://localhost');
+
+    final m = await first.timeout(const Duration(seconds: 5));
+    expect(subscribed, ['private-tenant.t1.store.s1.sync', 'private-tenant.t1.store.s1.devices']);
+    expect(m.event, 'device.activation');
+    expect(m.channel, 'private-tenant.t1.store.s1.devices');
+    expect(m.data['device_id'], 'd1');
+    expect((m.data['activation'] as Map)['valid'], isTrue);
+
+    await client.stop();
+    await server.close(force: true);
+  });
 }

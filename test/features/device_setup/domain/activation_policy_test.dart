@@ -46,9 +46,15 @@ void main() {
     });
 
     test('before starts_at: blocked as scheduled; SCHEDULED may sell once the start has passed', () {
-      expect(ActivationPolicy.evaluate(active, start.subtract(const Duration(minutes: 1))).block, ActivationBlock.scheduled);
+      expect(
+        ActivationPolicy.evaluate(active, start.subtract(const Duration(minutes: 1))).block,
+        ActivationBlock.scheduled,
+      );
       final scheduled = snap(ActivationStatus.scheduled, startsAt: start, expiresAt: end);
-      expect(ActivationPolicy.evaluate(scheduled, start.subtract(const Duration(minutes: 1))).block, ActivationBlock.scheduled);
+      expect(
+        ActivationPolicy.evaluate(scheduled, start.subtract(const Duration(minutes: 1))).block,
+        ActivationBlock.scheduled,
+      );
       expect(ActivationPolicy.evaluate(scheduled, start.add(const Duration(minutes: 1))).canSell, isTrue);
     });
 
@@ -60,7 +66,10 @@ void main() {
         ActivationBlock.suspended,
       );
       expect(ActivationPolicy.evaluate(snap(ActivationStatus.revoked), now).block, ActivationBlock.revoked);
-      expect(ActivationPolicy.evaluate(snap(ActivationStatus.expired, expiresAt: end), now).block, ActivationBlock.expired);
+      expect(
+        ActivationPolicy.evaluate(snap(ActivationStatus.expired, expiresAt: end), now).block,
+        ActivationBlock.expired,
+      );
       // ACTIVE but the server says not valid: trust the server
       expect(
         ActivationPolicy.evaluate(snap(ActivationStatus.active, startsAt: start, expiresAt: end), now).canSell,

@@ -99,8 +99,9 @@ void main() {
 
   test('expiry passing while offline blocks on the next re-evaluation', () async {
     var clock = DateTime.utc(2026, 12, 9, 9, 59);
-    final repo = FakeActivationRepository(stored: ActivationSnapshot(activation: valid, receivedAt: now))
-      ..fetchFailure = const Failure.network(message: 'offline');
+    final repo = FakeActivationRepository(
+      stored: ActivationSnapshot(activation: valid, receivedAt: now),
+    )..fetchFailure = const Failure.network(message: 'offline');
     final cubit = ActivationCubit(repo, clock: () => clock);
     addTearDown(cubit.close);
     await cubit.start('d1');

@@ -95,7 +95,10 @@ void main() {
         'remaining_days': null,
         'activation_id': null,
       }).toEntity();
-      expect([a.status, a.valid, a.startsAt, a.expiresAt, a.remainingDays], [ActivationStatus.inactive, false, null, null, null]);
+      expect(
+        [a.status, a.valid, a.startsAt, a.expiresAt, a.remainingDays],
+        [ActivationStatus.inactive, false, null, null, null],
+      );
       for (final s in ['SCHEDULED', 'SUSPENDED', 'EXPIRED', 'REVOKED']) {
         expect(ActivationStatus.fromWire(s).wire, s);
       }
@@ -126,7 +129,8 @@ void main() {
           receivedAt: deviceNow,
         ),
       );
-      final back = ActivationSnapshotModel.fromJson(jsonDecode(jsonEncode(m.toJson())) as Map<String, dynamic>).toEntity();
+      final back = ActivationSnapshotModel.fromJson(jsonDecode(jsonEncode(m.toJson())) as Map<String, dynamic>)
+          .toEntity();
       expect(back, m.toEntity());
       expect(back.clockOffset, const Duration(seconds: -42));
     });
@@ -156,7 +160,9 @@ void main() {
       200,
       jsonEncode({
         'device_id': 'd1',
-        'activation': {..._activationJson}..remove('device_id')..remove('store_id'),
+        'activation': {..._activationJson}
+          ..remove('device_id')
+          ..remove('store_id'),
       }),
     );
     final (repo, _, _) = build(adapter);

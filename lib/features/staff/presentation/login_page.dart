@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../../app/routes.dart';
 import '../../../app/theme.dart';
 import '../../../core/responsive/responsive.dart';
+import '../../sync/domain/sync_engine.dart';
 import '../../terminal/terminal_cubit.dart';
 import '../../terminal/widgets/sync_chip.dart';
 import '../data/staff_repository.dart';
@@ -411,6 +412,8 @@ class _NoUsers extends StatelessWidget {
                 ? 'Downloading users and menu from the server...'
                 : r == null
                 ? 'Waiting for the first sync.'
+                : r.result == SyncResult.waitingForSchedule
+                ? 'Staff checked. Orders and menu sync at the scheduled time, or when a manager approves Sync now in the admin panel.'
                 : 'Last sync: ${r.result.name}${r.message != null ? ' — ${r.message}' : ''}',
             textAlign: TextAlign.center,
             style: const TextStyle(color: Colors.white70),

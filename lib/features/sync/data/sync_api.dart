@@ -7,6 +7,9 @@ abstract interface class SyncApi {
   Future<Map<String, dynamic>> heartbeat({required int epoch, required int pending, required int pullCursor});
   Future<Map<String, dynamic>> push(Map<String, dynamic> batch);
   Future<Map<String, dynamic>> pull({required int cursor, int limit = 500, String? runId});
+
+  /// Current staff profiles of the store, in every sync mode (does not move the pull cursor).
+  Future<Map<String, dynamic>> staff();
   Future<Map<String, dynamic>> startRun(Map<String, dynamic> body);
   Future<Map<String, dynamic>> completeRun(String runId, Map<String, dynamic> body);
   Future<String> broadcastAuth({required String socketId, required String channel});
@@ -44,6 +47,9 @@ class DioSyncApi implements SyncApi {
         '/sync/pull',
         queryParameters: {'cursor': '$cursor', 'limit': '$limit', 'run_id': ?runId},
       )).data!;
+
+  @override
+  Future<Map<String, dynamic>> staff() async => (await _dio.get<Map<String, dynamic>>('/sync/staff')).data!;
 
   @override
   Future<Map<String, dynamic>> startRun(Map<String, dynamic> body) => _post('/sync/runs', body);

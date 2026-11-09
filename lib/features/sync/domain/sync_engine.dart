@@ -69,7 +69,11 @@ class SyncEngine {
 
       if (mode != 'CONTINUOUS') {
         runId = await _startRun(config);
-        if (runId == null) return SyncReport(SyncResult.waitingForSchedule, mode: mode);
+        if (runId == null) {
+          // Orders wait for the schedule, but staff (new logins, PINs, suspensions) never do.
+          final staff = await _refreshStaff();
+          return SyncReport(SyncResult.waitingForSchedule, mode: mode, pulled: staff);
+        }
       }
 
       final claim = await _api.claim(
@@ -154,6 +158,21 @@ class SyncEngine {
         message: code ?? e.message,
         rejectedCodes: rejectedCodes,
       );
+    }
+  }
+
+  /// Applies the store's current staff profiles (LWW by HLC, so the same changes arriving later with
+  /// the normal pull are no-ops). The pull cursor is not moved. A server without the endpoint is ignored.
+  Future<int> _refreshStaff() async {
+    try {
+      final page = await _api.staff();
+      final changes = (page['changes'] as List? ?? const [])
+          .map((c) => SyncChange.fromJson(Map<String, dynamic>.from(c as Map)))
+          .toList();
+      await _store.applyIncoming(changes);
+      return changes.length;
+    } on DioException {
+      return 0;
     }
   }
 
